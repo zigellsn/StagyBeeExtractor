@@ -1,6 +1,9 @@
 package com.ze.jwconfextractor
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.openqa.selenium.By
 import org.openqa.selenium.PageLoadStrategy
@@ -8,31 +11,46 @@ import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
-import java.lang.Exception
 import java.lang.System.currentTimeMillis
 import java.time.LocalDateTime
 
-data class Name(
-    val familyName: String,
-    val givenName: String,
-    val listenerCount: Int,
-    val requestToSpeak: Boolean,
-    val speaking: Boolean
+data class ExtractorStatus(
+    val running: Boolean,
+    val since: LocalDateTime,
+    val remaining: Long,
+    val timeout: Long
 )
+
+data class Name(val familyName: String, val givenName: String) {
+    var listenerCount: Int = 0
+    var requestToSpeak: Boolean = false
+    var speaking: Boolean = false
+}
 
 data class Names(val names: List<Name>)
 
-class Extractor(
+interface Extractor {
+    fun getListenersSnapshot(): Names?
+    suspend fun getListeners(): Flow<Any>
+    fun stopListener()
+    val status: ExtractorStatus
+}
+
+open class WebExtractor(
     private val id: String? = "",
     private val congregation: String? = "",
     private val username: String? = "",
     private val password: String? = "",
     private val frequency: Long = 1000L,
-    val timeout: Long = 1080000L
-) {
+    private val timeout: Long = 1080000L
+) : Extractor {
+
+    override fun stopListener() {
+        isActive = false
+    }
 
     init {
-        System.setProperty("webdriver.chrome.driver", "C:\\temp\\chromedriver.exe")
+        System.setProperty("webdriver.chrome.driver", "C:\\driver\\chromedriver.exe")
     }
 
     private val idCongregation = "congregation"
@@ -50,12 +68,15 @@ class Extractor(
     private val classListenerCount = "listenercount"
     private val classRequestToSpeak = "meldung"
     private val classSpeaking = "meldungActive"
-    private var t0 = currentTimeMillis() + timeout
+    protected var t0 = currentTimeMillis() + timeout
     private lateinit var driver: ChromeDriver
 
-    var running = false
-    var since = LocalDateTime.now()!!
-    fun remaining() = if (running) t0 - currentTimeMillis() else timeout
+    protected var isActive: Boolean = false
+    protected var since = LocalDateTime.now()!!
+    private val remaining
+        get() = if (isActive) t0 - currentTimeMillis() else timeout
+    override val status: ExtractorStatus
+        get() = ExtractorStatus(isActive, since, remaining, timeout)
 
     private fun login() {
         if (id != null && id.length == 12) {
@@ -87,13 +108,16 @@ class Extractor(
         val names = mutableListOf<Name>()
         elements.forEach {
             try {
-                val givenName = it.findElements(By.className(classFirstName))[0].getAttribute("textContent")
-                val familyName = it.findElements(By.className(this.classLastName))[0].getAttribute("textContent")
-                val listenerCount = it.findElements(By.className(this.classListenerCount))[0].getAttribute("textContent").toInt()
+                val name = Name(
+                    it.findElements(By.className(this.classLastName))[0].getAttribute("textContent"),
+                    it.findElements(By.className(classFirstName))[0].getAttribute("textContent")
+                )
+                name.listenerCount =
+                    it.findElements(By.className(this.classListenerCount))[0].getAttribute("textContent").toInt()
                 val className = it.getAttribute("class")
-                val requestToSpeak = className.contains(classRequestToSpeak)
-                val speaking = className.contains(classSpeaking)
-                names.add(Name(familyName, givenName, listenerCount, requestToSpeak, speaking))
+                name.requestToSpeak = className.contains(classRequestToSpeak)
+                name.speaking = className.contains(classSpeaking)
+                names.add(name)
             } catch (e: Exception) {
 
             }
@@ -101,14 +125,14 @@ class Extractor(
         return Names(names)
     }
 
-    fun getListenersSnapshot(): Names? {
-        if(running) {
-            return getNames()
-        }
-        return null
+    override fun getListenersSnapshot(): Names? {
+        return getNames()
     }
 
-    suspend fun getListeners() = flow {
+    @ExperimentalCoroutinesApi
+    @InternalCoroutinesApi
+    override suspend fun getListeners() = flow {
+        isActive = true
         val options = ChromeOptions().addArguments("--headless")
         options.setPageLoadStrategy(PageLoadStrategy.NORMAL)
         driver = ChromeDriver(options)
@@ -117,10 +141,9 @@ class Extractor(
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(idNames)))
         t0 = currentTimeMillis() + timeout
         since = LocalDateTime.now()!!
-        running = true
-        emit(running)
+        emit(isActive)
         var previousNames: Names? = null
-        while (currentTimeMillis() < t0 && running) {
+        while (currentTimeMillis() < t0 && isActive) {
             val names = getNames()
             if (names != previousNames) {
                 previousNames = names
@@ -128,7 +151,7 @@ class Extractor(
             }
             delay(frequency)
         }
-        this.emit(running)
+        this.emit(isActive)
         logoff()
     }
 }

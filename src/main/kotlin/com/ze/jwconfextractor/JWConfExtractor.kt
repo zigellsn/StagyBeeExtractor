@@ -1,31 +1,48 @@
 package com.ze.jwconfextractor
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
+import com.fasterxml.jackson.databind.exc.MismatchedInputException
+import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.option
 import com.ze.webhookk.WebhookK
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.engine.ProxyBuilder
+import io.ktor.client.engine.ProxyConfig
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.http
 import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.DefaultHeaders
-import io.ktor.gson.GsonConverter
-import io.ktor.gson.gson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.request.ContentTransformationException
+import io.ktor.http.Url
+import io.ktor.http.content.TextContent
+import io.ktor.jackson.jackson
 import io.ktor.request.receive
 import io.ktor.response.respond
 import io.ktor.response.respondFile
-import io.ktor.routing.Routing
 import io.ktor.routing.delete
 import io.ktor.routing.get
 import io.ktor.routing.post
+import io.ktor.routing.routing
+import io.ktor.server.engine.applicationEngineEnvironment
+import io.ktor.server.engine.connector
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.util.KtorExperimentalAPI
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.io.File
-import java.net.URI
+import java.math.BigInteger
 import java.security.MessageDigest
 import java.text.DateFormat
 import java.time.LocalDateTime
@@ -36,7 +53,7 @@ data class Subscribe(
     val url: String,
     val id: String?,
     val congregation: String?,
-    val userName: String?,
+    val username: String?,
     val password: String?,
     val timeout: Long?
 )
@@ -69,109 +86,133 @@ const val FREQUENCY = 1000L
 const val THREE_HOURS = 1080000L
 const val QUARTER_HOUR = 90000L
 
-val webhooks = WebhookK(HttpClient(OkHttp))
+lateinit var webhooks: WebhookK
 val extractors = mutableMapOf<String, Extractor>()
-val listeners = mutableMapOf<String, Pair<String, URI>>()
+val jobs = mutableMapOf<String, Job>()
+val listeners = mutableMapOf<String, Pair<String, Url>>()
+val json = ObjectMapper()
 
+@KtorExperimentalAPI
+@ExperimentalCoroutinesApi
 suspend fun startListener(extractor: Extractor, id: String) {
-    extractor.getListeners().collect {
+    val job = extractor.getListeners().onEach {
         if (it is Boolean) {
-            webhooks.trigger(id, Status(it), listOf(xJWConfExtractorEvent to listOf(eventStatus)))
             if (it) {
                 println("Running ID ${id}...")
-            } else {
-                println("Stopped ID ${id}...")
+                webhooks.trigger(
+                    id,
+                    TextContent(json.writeValueAsString(Status(it)), contentType = ContentType.Application.Json),
+                    listOf(xJWConfExtractorEvent to listOf(eventStatus))
+                ).collect { }
             }
         } else {
-            webhooks.trigger(id, it, listOf(xJWConfExtractorEvent to listOf(eventListeners)))
+            webhooks.trigger(
+                id,
+                TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
+                listOf(xJWConfExtractorEvent to listOf(eventListeners))
+            ).collect{ }
         }
-    }
+    }.launchIn(GlobalScope)
+    jobs[id] = job
     //TODO: Send error
 }
 
+class Proxy : CliktCommand() {
+
+    private val proxyUrl: String? by option(help = "Proxy")
+
+    @ExperimentalCoroutinesApi
+    @KtorExperimentalAPI
+    override fun run() {
+        val env = applicationEngineEnvironment {
+            module {
+                main()
+            }
+            // Test API
+            connector {
+                host = "127.0.0.1"
+                port = 9090
+            }
+            // Public API
+            connector {
+                host = "0.0.0.0"
+                port = 8080
+            }
+        }
+        webhooks = WebhookK(HttpClient(CIO) {
+            engine {
+                proxy = if (!proxyUrl.isNullOrEmpty())
+                    ProxyBuilder.http(proxyUrl!!)
+                else
+                    ProxyConfig.NO_PROXY
+            }
+        })
+
+        embeddedServer(Netty, env).start(true)
+    }
+}
+
+fun main(args: Array<String>) = Proxy().main(args)
+
+@KtorExperimentalAPI
+@ExperimentalCoroutinesApi
 fun Application.main() {
     install(DefaultHeaders)
     install(CallLogging)
     install(ContentNegotiation) {
-        register(ContentType.Application.Json, GsonConverter())
-        gson {
-            setDateFormat(DateFormat.LONG)
-            setPrettyPrinting()
+        jackson {
+            enable(SerializationFeature.INDENT_OUTPUT)
+            dateFormat = DateFormat.getDateInstance()
         }
     }
-    install(Routing) {
+    routing {
         post("/api/subscribe/") {
             call.response.headers.append(xJWConfExtractorAction, actionSubscribe)
-            val s = try {
+            val subscribeRequest = try {
                 call.receive<Subscribe>()
-            } catch (e: ContentTransformationException) {
+            } catch (e: MismatchedInputException) {
                 call.response.status(HttpStatusCode.BadRequest)
                 call.respond(Success(false, "Empty request body"))
                 return@post
             }
-            if (s.url.isEmpty()) {
+            if (subscribeRequest.url.isEmpty()) {
                 call.response.status(HttpStatusCode.BadRequest)
                 call.respond(Success(false, "URL must not be empty"))
                 return@post
             }
-            val md: MessageDigest = MessageDigest.getInstance("SHA")
-            val topic = if (s.id.isNullOrEmpty() || s.id.length > 12) {
-                md.digest("${s.congregation}:${s.userName}:${s.password}".toByteArray()).toString()
-            } else {
-                s.id
-            }
-            val uri = try {
-                URI.create(s.url)
+            val topic = createTopic(subscribeRequest)
+            val url = try {
+                Url(subscribeRequest.url)
             } catch (e: IllegalArgumentException) {
                 call.respond(HttpStatusCode.BadRequest, Success(false, e.toString()))
                 return@post
             }
-
-            val sessionId = if (!listeners.containsValue(topic to uri)) {
-                val newSessionId = UUID.randomUUID().toString()
-                listeners[newSessionId] = topic to uri
-                newSessionId
-            } else {
-                val sessions = listeners.filterValues { it == topic to uri }.keys
-                if (sessions.size == 1) {
-                    sessions.toList()[0]
-                } else {
-                    //TODO: Exception
-                    throw Exception()
-                }
-            }
+            val sessionId = createSessionId(topic, url)
 
             if (!extractors.containsKey(topic)) {
-
-                val timeout = if (s.timeout == null)
-                    THREE_HOURS
-                else {
-                    if (s.timeout < QUARTER_HOUR) {
-                        QUARTER_HOUR
-                    }
-                    s.timeout
-                }
-
+                val timeout = createTimeout(subscribeRequest)
                 try {
-                    extractors[topic] = Extractor(topic, s.congregation, s.userName, s.password, FREQUENCY, timeout)
+                    extractors[topic] = createExtractor(call.request.local.port, topic, subscribeRequest, timeout)
                 } catch (err: Exception) {
                     call.response.headers.append(xJWConfExtractorEvent, eventError)
                     call.respond(HttpStatusCode.InternalServerError, Success(false, err.toString()))
                     return@post
                 } finally {
-                    GlobalScope.launch {
-                        startListener(extractors[topic] ?: throw AssertionError("Set to null by another thread"), topic)
-                    }
+                    startListener(extractors[topic] ?: throw AssertionError("Set to null by another thread"), topic)
                 }
             } else {
                 webhooks.trigger(
                     topic,
-                    extractors[topic]?.getListenersSnapshot() ?: Names(emptyList()),
+                    TextContent(
+                        json.writeValueAsString(
+                            jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(emptyList())
+                        ), contentType = ContentType.Application.Json
+                    ),
                     listOf(xJWConfExtractorEvent to listOf(eventListeners))
-                )
+                ).collect{ }
             }
 
-            webhooks.add(topic, uri)
+            webhooks.add(topic, url)
             call.respond(Success(true, sessionId = sessionId))
         }
         delete("/api/unsubscribe/{sessionId}/") {
@@ -183,16 +224,7 @@ fun Application.main() {
                 return@delete
             }
 
-            val session = listeners[sessionId] ?: throw AssertionError("")
-
-            if (extractors.containsKey(session.first)) {
-                webhooks.remove(session.first, session.second)
-                if (webhooks.getUris(session.first).count() == 0) {
-                    extractors[session.first]?.running = false
-                    extractors.remove(session.first)
-                    listeners.remove(session.first)
-                }
-            }
+            stopExtractor(sessionId)
             call.respond(Success(true))
         }
         get("/api/status/{sessionId}/") {
@@ -206,10 +238,10 @@ fun Application.main() {
             if (extractor != null) {
                 call.respond(
                     Status(
-                        extractor.running,
-                        extractor.since,
-                        extractor.remaining(),
-                        extractor.timeout,
+                        extractor.status.running,
+                        extractor.status.since,
+                        extractor.status.remaining,
+                        extractor.status.timeout,
                         LocalDateTime.now()
                     )
                 )
@@ -222,3 +254,63 @@ fun Application.main() {
         }
     }
 }
+
+private suspend fun stopExtractor(sessionId: String?) {
+    val session = listeners[sessionId] ?: throw AssertionError("")
+    if (extractors.containsKey(session.first)) {
+        webhooks.remove(session.first, session.second)
+        if (webhooks.getUrls(session.first).count() == 0) {
+
+            webhooks.remove(session.first)
+            extractors[session.first]?.stopListener()
+            jobs[session.first]?.cancelAndJoin()
+            jobs.remove(session.first)
+            extractors.remove(session.first)
+            listeners.remove(sessionId)
+            println("Stopped ID ${session.first}...")
+        }
+    }
+}
+
+private fun createExtractor(port: Int, topic: String, subscribe: Subscribe, timeout: Long): Extractor =
+    if (port == 8080) {
+        WebExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password, FREQUENCY, timeout)
+    } else {
+        TestExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password, FREQUENCY, timeout)
+    }
+
+private fun createTimeout(subscribeRequest: Subscribe) =
+    if (subscribeRequest.timeout == null)
+        THREE_HOURS
+    else {
+        if (subscribeRequest.timeout < QUARTER_HOUR) {
+            QUARTER_HOUR
+        }
+        subscribeRequest.timeout
+    }
+
+private fun createSessionId(topic: String, url: Url) =
+    if (!listeners.containsValue(topic to url)) {
+        val newSessionId = UUID.randomUUID().toString()
+        listeners[newSessionId] = topic to url
+        newSessionId
+    } else {
+        val sessions = listeners.filterValues { it == topic to url }.keys
+        if (sessions.size == 1) {
+            sessions.toList()[0]
+        } else {
+            //TODO: Exception
+            throw Exception()
+        }
+    }
+
+private fun createTopic(subscribeRequest: Subscribe) =
+    if (subscribeRequest.id.isNullOrEmpty() || subscribeRequest.id.length > 12) {
+        val md: MessageDigest = MessageDigest.getInstance("SHA")
+        BigInteger(
+            1,
+            md.digest("${subscribeRequest.congregation}:${subscribeRequest.username}:${subscribeRequest.password}".toByteArray())
+        ).toString(16)
+    } else {
+        subscribeRequest.id
+    }
