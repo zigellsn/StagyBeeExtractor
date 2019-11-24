@@ -1,10 +1,12 @@
 package com.ze.jwconfextractor
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.types.int
 import com.ze.webhookk.WebhookK
 import io.ktor.application.Application
 import io.ktor.application.call
@@ -90,7 +92,7 @@ lateinit var webhooks: WebhookK
 val extractors = mutableMapOf<String, Extractor>()
 val jobs = mutableMapOf<String, Job>()
 val listeners = mutableMapOf<String, Pair<String, Url>>()
-val json = ObjectMapper()
+val json = jacksonObjectMapper()
 
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
@@ -99,18 +101,18 @@ suspend fun startListener(extractor: Extractor, id: String) {
         if (it is Boolean) {
             if (it) {
                 println("Running ID ${id}...")
-                webhooks.trigger(
+                /*webhooks.trigger(
                     id,
                     TextContent(json.writeValueAsString(Status(it)), contentType = ContentType.Application.Json),
                     listOf(xJWConfExtractorEvent to listOf(eventStatus))
-                ).collect { }
+                ).collect { }*/
             }
         } else {
-            webhooks.trigger(
+            /*webhooks.trigger(
                 id,
                 TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
                 listOf(xJWConfExtractorEvent to listOf(eventListeners))
-            ).collect{ }
+            ).collect{ }*/
         }
     }.launchIn(GlobalScope)
     jobs[id] = job
@@ -120,6 +122,7 @@ suspend fun startListener(extractor: Extractor, id: String) {
 class Proxy : CliktCommand() {
 
     private val proxyUrl: String? by option(help = "Proxy")
+    private val serverPort: Int by option(help = "Port").int().default(8080)
 
     @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
@@ -136,7 +139,7 @@ class Proxy : CliktCommand() {
             // Public API
             connector {
                 host = "0.0.0.0"
-                port = 8080
+                port = serverPort
             }
         }
         webhooks = WebhookK(HttpClient(CIO) {
@@ -201,7 +204,7 @@ fun Application.main() {
                     startListener(extractors[topic] ?: throw AssertionError("Set to null by another thread"), topic)
                 }
             } else {
-                webhooks.trigger(
+                /*webhooks.trigger(
                     topic,
                     TextContent(
                         json.writeValueAsString(
@@ -209,7 +212,7 @@ fun Application.main() {
                         ), contentType = ContentType.Application.Json
                     ),
                     listOf(xJWConfExtractorEvent to listOf(eventListeners))
-                ).collect{ }
+                ).collect{ }*/
             }
 
             webhooks.add(topic, url)
@@ -276,7 +279,7 @@ private fun createExtractor(port: Int, topic: String, subscribe: Subscribe, time
     if (port == 8080) {
         WebExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password, FREQUENCY, timeout)
     } else {
-        TestExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password, FREQUENCY, timeout)
+        TestExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password)
     }
 
 private fun createTimeout(subscribeRequest: Subscribe) =
