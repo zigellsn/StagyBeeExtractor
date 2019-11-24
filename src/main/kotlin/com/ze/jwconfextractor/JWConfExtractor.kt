@@ -101,18 +101,18 @@ suspend fun startListener(extractor: Extractor, id: String) {
         if (it is Boolean) {
             if (it) {
                 println("Running ID ${id}...")
-                /*webhooks.trigger(
+                webhooks.trigger(
                     id,
                     TextContent(json.writeValueAsString(Status(it)), contentType = ContentType.Application.Json),
                     listOf(xJWConfExtractorEvent to listOf(eventStatus))
-                ).collect { }*/
+                ).collect { }
             }
         } else {
-            /*webhooks.trigger(
+            webhooks.trigger(
                 id,
                 TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
                 listOf(xJWConfExtractorEvent to listOf(eventListeners))
-            ).collect{ }*/
+            ).collect{ }
         }
     }.launchIn(GlobalScope)
     jobs[id] = job
@@ -204,7 +204,7 @@ fun Application.main() {
                     startListener(extractors[topic] ?: throw AssertionError("Set to null by another thread"), topic)
                 }
             } else {
-                /*webhooks.trigger(
+                webhooks.trigger(
                     topic,
                     TextContent(
                         json.writeValueAsString(
@@ -212,7 +212,7 @@ fun Application.main() {
                         ), contentType = ContentType.Application.Json
                     ),
                     listOf(xJWConfExtractorEvent to listOf(eventListeners))
-                ).collect{ }*/
+                ).collect{ }
             }
 
             webhooks.add(topic, url)

@@ -1,6 +1,5 @@
 package com.ze.jwconfextractor
 
-import com.gargoylesoftware.htmlunit.BrowserVersion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
@@ -10,14 +9,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import org.openqa.selenium.By
+import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.WebDriver
-import org.openqa.selenium.htmlunit.HtmlUnitDriver
+import org.openqa.selenium.chrome.ChromeDriver
+import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
 import java.lang.System.currentTimeMillis
 import java.time.LocalDateTime
-import java.util.logging.Level
-import java.util.logging.Logger
 
 data class ExtractorStatus(
     val running: Boolean,
@@ -53,6 +52,10 @@ open class WebExtractor(
 
     override fun stopListener() {
         isActive = false
+    }
+
+    init {
+        System.setProperty("webdriver.chrome.driver", "C:\\temp\\chromedriver.exe")
     }
 
     protected var t0 = currentTimeMillis() + timeout
@@ -100,8 +103,9 @@ open class WebExtractor(
                 )
                 name.listenerCount =
                     it.findElements(By.className(classListenerCount))[0].getAttribute("textContent").toInt()
-                name.requestToSpeak = it.toString().contains(classRequestToSpeak)
-                name.speaking = it.toString().contains(classSpeaking)
+                val className = it.getAttribute("class")
+                name.requestToSpeak = className.contains(classRequestToSpeak)
+                name.speaking = className.contains(classSpeaking)
                 names.add(name)
             } catch (e: Exception) {
 
@@ -162,8 +166,9 @@ open class WebExtractor(
     }
 
     private fun initDriver() {
-        Logger.getLogger("com.gargoylesoftware").level = Level.OFF
-        driver = HtmlUnitDriver(BrowserVersion.BEST_SUPPORTED, true)
+        val options = ChromeOptions().addArguments("--headless")
+        options.setPageLoadStrategy(PageLoadStrategy.NORMAL)
+        driver = ChromeDriver(options)
         login()
         val wait = WebDriverWait(driver, internalTimeout)
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id(idNames)))
