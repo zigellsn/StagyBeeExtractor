@@ -1,4 +1,4 @@
-package com.ze.jwconfextractor
+package com.ze.stagybee.extractor
 
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
@@ -74,8 +74,8 @@ data class Status(
     val serverTime: LocalDateTime? = null
 )
 
-const val xJWConfExtractorEvent = "X-JWCONFEXTRACTOR-EVENT"
-const val xJWConfExtractorAction = "X-JWCONFEXTRACTOR-ACTION"
+const val xStagyBeeExtractorEvent = "X-STAGYBEE-EXTRACTOR-EVENT"
+const val xStagyBeeExtractorAction = "X-STAGYBEE-EXTRACTOR-ACTION"
 const val eventListeners = "listeners"
 const val eventStatus = "status"
 const val eventError = "error"
@@ -103,16 +103,26 @@ suspend fun startListener(extractor: Extractor, id: String) {
                 println("Running ID ${id}...")
                 webhooks.trigger(
                     id,
-                    TextContent(json.writeValueAsString(Status(it)), contentType = ContentType.Application.Json),
-                    listOf(xJWConfExtractorEvent to listOf(eventStatus))
+                    TextContent(
+                        json.writeValueAsString(
+                            Status(
+                                it
+                            )
+                        ), contentType = ContentType.Application.Json
+                    ),
+                    listOf(
+                        xStagyBeeExtractorEvent to listOf(
+                            eventStatus
+                        )
+                    )
                 ).collect { }
             }
         } else {
             webhooks.trigger(
                 id,
                 TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
-                listOf(xJWConfExtractorEvent to listOf(eventListeners))
-            ).collect{ }
+                listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
+            ).collect { }
         }
     }.launchIn(GlobalScope)
     jobs[id] = job
@@ -123,13 +133,14 @@ class Proxy : CliktCommand() {
 
     private val proxyUrl: String? by option(help = "Proxy")
     private val serverPort: Int by option(help = "Port").int().default(8080)
+    private val driverBin: String? by option(help = "WebDriver Binary")
 
     @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
     override fun run() {
         val env = applicationEngineEnvironment {
             module {
-                main()
+                main(driverBin)
             }
             // Test API
             connector {
@@ -159,7 +170,7 @@ fun main(args: Array<String>) = Proxy().main(args)
 
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
-fun Application.main() {
+fun Application.main(driverBin: String?) {
     install(DefaultHeaders)
     install(CallLogging)
     install(ContentNegotiation) {
@@ -170,7 +181,10 @@ fun Application.main() {
     }
     routing {
         post("/api/subscribe/") {
-            call.response.headers.append(xJWConfExtractorAction, actionSubscribe)
+            call.response.headers.append(
+                xStagyBeeExtractorAction,
+                actionSubscribe
+            )
             val subscribeRequest = try {
                 call.receive<Subscribe>()
             } catch (e: MismatchedInputException) {
@@ -187,7 +201,10 @@ fun Application.main() {
             val url = try {
                 Url(subscribeRequest.url)
             } catch (e: IllegalArgumentException) {
-                call.respond(HttpStatusCode.BadRequest, Success(false, e.toString()))
+                call.respond(
+                    HttpStatusCode.BadRequest,
+                    Success(false, e.toString())
+                )
                 return@post
             }
             val sessionId = createSessionId(topic, url)
@@ -195,24 +212,46 @@ fun Application.main() {
             if (!extractors.containsKey(topic)) {
                 val timeout = createTimeout(subscribeRequest)
                 try {
-                    extractors[topic] = createExtractor(call.request.local.port, topic, subscribeRequest, timeout)
+                    extractors[topic] =
+                        createExtractor(
+                            call.request.local.port,
+                            topic,
+                            subscribeRequest,
+                            timeout,
+                            driverBin
+                        )
                 } catch (err: Exception) {
-                    call.response.headers.append(xJWConfExtractorEvent, eventError)
-                    call.respond(HttpStatusCode.InternalServerError, Success(false, err.toString()))
+                    call.response.headers.append(
+                        xStagyBeeExtractorEvent,
+                        eventError
+                    )
+                    call.respond(
+                        HttpStatusCode.InternalServerError,
+                        Success(false, err.toString())
+                    )
                     return@post
                 } finally {
-                    startListener(extractors[topic] ?: throw AssertionError("Set to null by another thread"), topic)
+                    startListener(
+                        extractors[topic]
+                            ?: throw AssertionError("Set to null by another thread"), topic
+                    )
                 }
             } else {
                 webhooks.trigger(
                     topic,
                     TextContent(
                         json.writeValueAsString(
-                            jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(emptyList())
+                            jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(
+                                emptyList()
+                            )
                         ), contentType = ContentType.Application.Json
                     ),
-                    listOf(xJWConfExtractorEvent to listOf(eventListeners))
-                ).collect{ }
+                    listOf(
+                        xStagyBeeExtractorEvent to listOf(
+                            eventListeners
+                        )
+                    )
+                ).collect { }
             }
 
             webhooks.add(topic, url)
@@ -220,7 +259,10 @@ fun Application.main() {
         }
         delete("/api/unsubscribe/{sessionId}/") {
             val sessionId = call.parameters["sessionId"]
-            call.response.headers.append(xJWConfExtractorAction, actionUnsubscribe)
+            call.response.headers.append(
+                xStagyBeeExtractorAction,
+                actionUnsubscribe
+            )
 
             if (!listeners.containsKey(sessionId)) {
                 call.respond(Success(false, "Unknown session id"))
@@ -231,7 +273,10 @@ fun Application.main() {
             call.respond(Success(true))
         }
         get("/api/status/{sessionId}/") {
-            call.response.headers.append(xJWConfExtractorAction, actionStatus)
+            call.response.headers.append(
+                xStagyBeeExtractorAction,
+                actionStatus
+            )
             val sessionId = call.parameters["sessionId"] ?: throw AssertionError("")
             if (!listeners.containsKey(sessionId)) {
                 call.respond(Status(running = false))
@@ -252,7 +297,10 @@ fun Application.main() {
                 call.respond(Status(false))
         }
         get("/api/meta/") {
-            call.response.headers.append(xJWConfExtractorAction, actionMeta)
+            call.response.headers.append(
+                xStagyBeeExtractorAction,
+                actionMeta
+            )
             call.respondFile(File("meta.json"))
         }
     }
@@ -275,11 +323,25 @@ private suspend fun stopExtractor(sessionId: String?) {
     }
 }
 
-private fun createExtractor(port: Int, topic: String, subscribe: Subscribe, timeout: Long): Extractor =
+private fun createExtractor(
+    port: Int,
+    topic: String,
+    subscribe: Subscribe,
+    timeout: Long,
+    driverBin: String?
+): Extractor =
     if (port == 8080) {
-        WebExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password, FREQUENCY, timeout)
+        JWConfExtractor(
+            topic,
+            subscribe.congregation,
+            subscribe.username,
+            subscribe.password,
+            FREQUENCY,
+            timeout,
+            driverBin
+        )
     } else {
-        TestExtractor(topic, subscribe.congregation, subscribe.username, subscribe.password)
+        SimulationExtractor()
     }
 
 private fun createTimeout(subscribeRequest: Subscribe) =

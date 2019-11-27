@@ -6,7 +6,7 @@ plugins {
 apply plugin: 'kotlin'
 apply plugin: 'application'
 
-group 'com.ze.jwconfextractor'
+group 'com.ze.stagybee.extractor'
 version '1.0-SNAPSHOT'
 
 repositories {
@@ -31,7 +31,7 @@ dependencies {
 }
 
 application {
-    mainClassName = "com.ze.jwconfextractor.JWConfExtractorKt"
+    mainClassName = "com.ze.stagybee.extractor.StagyBeeExtractorKt"
 }
 
 compileKotlin {

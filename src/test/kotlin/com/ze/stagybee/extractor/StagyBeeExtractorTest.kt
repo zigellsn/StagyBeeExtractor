@@ -1,6 +1,5 @@
-package com.ze.jwconfextractor
+package com.ze.stagybee.extractor
 
-import io.ktor.application.Application
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -13,12 +12,12 @@ import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 
-class JWConfExtractorTest {
+class StagyBeeExtractorTest {
 
     @Test
     @KtorExperimentalAPI
     @ExperimentalCoroutinesApi
-    fun testMeta() = withTestApplication(Application::main) {
+    fun testMeta() = withTestApplication({main("")}) {
         with(handleRequest(HttpMethod.Get, "/api/meta/")) {
             val content = File("meta.json").readText()
             assertEquals(HttpStatusCode.OK, response.status())
@@ -29,7 +28,7 @@ class JWConfExtractorTest {
     @Test
     @KtorExperimentalAPI
     @ExperimentalCoroutinesApi
-    fun testSubscribeEmptyBody() = withTestApplication(Application::main) {
+    fun testSubscribeEmptyBody() = withTestApplication({main("")}) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe/") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
         }) {
@@ -40,7 +39,7 @@ class JWConfExtractorTest {
     @Test
     @KtorExperimentalAPI
     @ExperimentalCoroutinesApi
-    fun testSubscribe() = withTestApplication(Application::main) {
+    fun testSubscribe() = withTestApplication({main("")}) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe/") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             // setBody(Subscribe())
