@@ -23,7 +23,9 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
-import com.ze.webhookk.WebhookK
+import com.github.zigellsn.webhookk.WebhookK
+import com.github.zigellsn.webhookk.add
+import com.github.zigellsn.webhookk.removeUrl
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
@@ -117,28 +119,32 @@ suspend fun startListener(extractor: Extractor, id: String) {
         if (it is Boolean) {
             if (it) {
                 println("Running ID ${id}...")
-                webhooks.trigger(
-                    id,
-                    TextContent(
-                        json.writeValueAsString(
-                            Status(
-                                it
+                webhooks.trigger(id) { url ->
+                    webhooks.post(
+                        url,
+                        TextContent(
+                            json.writeValueAsString(
+                                Status(
+                                    it
+                                )
+                            ), contentType = ContentType.Application.Json
+                        ),
+                        listOf(
+                            xStagyBeeExtractorEvent to listOf(
+                                eventStatus
                             )
-                        ), contentType = ContentType.Application.Json
-                    ),
-                    listOf(
-                        xStagyBeeExtractorEvent to listOf(
-                            eventStatus
                         )
                     )
-                ).collect { }
+                }.collect { }
             }
         } else {
-            webhooks.trigger(
-                id,
-                TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
-                listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
-            ).collect { }
+            webhooks.trigger(id) { url ->
+                webhooks.post(
+                    url,
+                    TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
+                    listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
+                )
+            }.collect { }
         }
     }.launchIn(GlobalScope)
     jobs[id] = job
@@ -253,24 +259,26 @@ fun Application.main(driverBin: String?) {
                     )
                 }
             } else {
-                webhooks.trigger(
-                    topic,
-                    TextContent(
-                        json.writeValueAsString(
-                            jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(
-                                emptyList()
+                webhooks.trigger(topic) { itl ->
+                    webhooks.post(
+                        itl,
+                        TextContent(
+                            json.writeValueAsString(
+                                jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(
+                                    emptyList()
+                                )
+                            ), contentType = ContentType.Application.Json
+                        ),
+                        listOf(
+                            xStagyBeeExtractorEvent to listOf(
+                                eventListeners
                             )
-                        ), contentType = ContentType.Application.Json
-                    ),
-                    listOf(
-                        xStagyBeeExtractorEvent to listOf(
-                            eventListeners
                         )
                     )
-                ).collect { }
+                }.collect { }
             }
 
-            webhooks.add(topic, url)
+            webhooks.topics.add(topic, url)
             call.respond(Success(true, sessionId = sessionId))
         }
         delete("/api/unsubscribe/{sessionId}/") {
@@ -325,10 +333,10 @@ fun Application.main(driverBin: String?) {
 private suspend fun stopExtractor(sessionId: String?) {
     val session = listeners[sessionId] ?: throw AssertionError("")
     if (extractors.containsKey(session.first)) {
-        webhooks.remove(session.first, session.second)
-        if (webhooks.getUrls(session.first).count() == 0) {
+        webhooks.topics.removeUrl(session.first, session.second)
+        if (webhooks.topics[session.first]?.count() == 0) {
 
-            webhooks.remove(session.first)
+            webhooks.topics.remove(session.first)
             extractors[session.first]?.stopListener()
             jobs[session.first]?.cancelAndJoin()
             jobs.remove(session.first)
