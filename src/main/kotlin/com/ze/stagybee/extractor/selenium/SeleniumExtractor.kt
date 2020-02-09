@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Simon Zigelli
+ * Copyright 2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-package com.ze.stagybee.extractor
+package com.ze.stagybee.extractor.selenium
 
+import com.ze.stagybee.extractor.Name
+import com.ze.stagybee.extractor.Names
+import com.ze.stagybee.extractor.WebExtractor
 import org.openqa.selenium.By
 import org.openqa.selenium.PageLoadStrategy
 import org.openqa.selenium.WebDriver
@@ -24,7 +27,8 @@ import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.WebDriverWait
 
-open class JWConfExtractor(
+@Deprecated("Deprecated", ReplaceWith("HttpExtractor"))
+open class SeleniumExtractor(
     private val id: String? = "",
     private val congregation: String? = "",
     private val username: String? = "",
@@ -41,7 +45,7 @@ open class JWConfExtractor(
 
     private lateinit var driver: WebDriver
 
-    override fun login() {
+    private fun login() {
         if (id != null && id.length == 12) {
             driver.get("$urlAutoLogin${id}")
         } else {
@@ -61,7 +65,7 @@ open class JWConfExtractor(
         }
     }
 
-    override fun logoff() {
+    override suspend fun logoff() {
         driver.get(urlLogout)
         driver.quit()
     }
@@ -72,6 +76,7 @@ open class JWConfExtractor(
         elements.forEach {
             try {
                 val name = Name(
+                    0,
                     it.findElements(By.className(classLastName))[0].getAttribute(
                         "textContent"
                     ),
@@ -92,25 +97,7 @@ open class JWConfExtractor(
         return Names(names)
     }
 
-    /*     @ExperimentalCoroutinesApi
-    fun CoroutineScope.getChannel(): ReceiveChannel<Any> = produce {
-        initExtractor()
-        var previousNames: Names? = null
-        isActive = true
-        send(isActive)
-        while (System.currentTimeMillis() < t0 && isActive) {
-            val names = getNames()
-            if (names != previousNames) {
-                previousNames = names
-                send(names)
-            }
-            delay(frequency)
-        }
-        send(isActive)
-        shutdownExtractor()
-    } */
-
-    override fun initDriver() {
+    private fun initDriver() {
         val options = ChromeOptions().addArguments("--headless")
         options.setPageLoadStrategy(PageLoadStrategy.NORMAL)
         driver = ChromeDriver(options)

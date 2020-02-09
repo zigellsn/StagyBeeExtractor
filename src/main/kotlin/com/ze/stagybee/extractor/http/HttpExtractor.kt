@@ -1,0 +1,164 @@
+/*
+ * Copyright 2020 Simon Zigelli
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.ze.stagybee.extractor.http
+
+import com.ze.stagybee.extractor.Name
+import com.ze.stagybee.extractor.Names
+import com.ze.stagybee.extractor.WebExtractor
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.cio.endpoint
+import io.ktor.client.features.cookies.AcceptAllCookiesStorage
+import io.ktor.client.features.cookies.HttpCookies
+import io.ktor.client.features.websocket.WebSockets
+import io.ktor.client.features.websocket.ws
+import io.ktor.client.request.get
+import io.ktor.client.request.headers
+import io.ktor.client.request.post
+import io.ktor.client.request.url
+import io.ktor.http.HttpMethod
+import io.ktor.http.cio.websocket.Frame
+import io.ktor.http.cio.websocket.readText
+import io.ktor.util.KtorExperimentalAPI
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.consumeAsFlow
+
+open class HttpExtractor(
+    private val id: String? = "",
+    private val congregation: String? = "",
+    private val username: String? = "",
+    private val password: String? = "",
+    frequency: Long = 1000L,
+    override val timeout: Long = 1080000L
+) : WebExtractor(frequency, timeout) {
+
+    @KtorExperimentalAPI
+    private val client = HttpClient(CIO) {
+        install(HttpCookies) {
+            storage = AcceptAllCookiesStorage()
+        }
+        install(WebSockets)
+        expectSuccess = false
+        engine {
+            endpoint {
+                connectTimeout = timeout
+                requestTimeout = timeout
+            }
+        }
+    }
+    private val parser = WSParser()
+    private val names = mutableListOf<Name>()
+
+    @KtorExperimentalAPI
+    override suspend fun logoff() {
+        client.get<String>(urlLogout)
+        client.close()
+    }
+
+    @FlowPreview
+    @KtorExperimentalAPI
+    @ExperimentalCoroutinesApi
+    override suspend fun getNames(): Names {
+        return Names(names)
+    }
+
+    private fun processMessages(message: String) {
+        val action = parser.parseMessage(message)
+        when (action?.data) {
+            is WSParser.Data.AddRow -> {
+                val row = action.data as WSParser.Data.AddRow
+                names.add(Name(row.id, row.sn, row.gn, row.speechrequest, row.mutestatus).also {
+                    it.listenerCount = row.listener
+                })
+            }
+            is WSParser.Data.DelRow -> {
+                val row = findName(action.data.id) ?: return
+                names.remove(row)
+            }
+            is WSParser.Data.Speech -> {
+                val row = action.data as WSParser.Data.Speech
+                names[names.indexOf(findName(action.data.id))].requestToSpeak = row.speechrequest
+                names[names.indexOf(findName(action.data.id))].speaking = row.mutestatus
+            }
+        }
+    }
+
+    private fun findName(id: Int): Name? {
+        return names.find { it.id == id }
+    }
+
+    override suspend fun stopListener() {
+        isActive = false
+        shutdownExtractor()
+    }
+
+    @ExperimentalCoroutinesApi
+    @FlowPreview
+    @KtorExperimentalAPI
+    @InternalCoroutinesApi
+    override suspend fun getListeners(block: (Flow<Any>) -> Unit) {
+        if (id != null && id.length == 12) {
+            client.post<String>("$urlAutoLogin${id}")
+        } else {
+            val myBody =
+                "loginstatus=auth&congregation=${congregation}&congregation_id=&username=${username}&password=${password}"
+            client.post<String> {
+                url(surl)
+                body = myBody
+                headers {
+                    append("Content-Type", "application/x-www-form-urlencoded")
+                }
+            }
+        }
+        isActive = true
+        client.ws(
+            method = HttpMethod.Get,
+            host = webSocketUrl,
+            port = webSocketPort,
+            path = webSocketPath
+        ) {
+            incoming.consumeAsFlow().collect { frame ->
+                when (frame) {
+                    is Frame.Text -> {
+                        println(processMessages(frame.readText()))
+                    }
+                }
+            }
+            /* block(incoming.consumeAsFlow().map { frame ->
+                when (frame) {
+                    is Frame.Text -> {
+                        processMessages(frame.readText())
+                    }
+                }
+                Names(names)
+            }) */
+        }
+    }
+
+    companion object {
+        const val urlAutoLogin = "https://jwconf.org/stage.php?key="
+        const val surl = "https://jwconf.org/login.php"
+        const val urlLogout = "https://jwconf.org/index.php?logout"
+        const val webSocketUrl = "jwconf.org"
+        const val webSocketPath = "/websocket"
+        const val webSocketPort = 80
+    }
+}

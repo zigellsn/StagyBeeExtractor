@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Simon Zigelli
+ * Copyright 2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-package com.ze.stagybee.extractor
+package com.ze.stagybee.extractor.simulation
 
+import com.ze.stagybee.extractor.Name
+import com.ze.stagybee.extractor.Names
+import com.ze.stagybee.extractor.WebExtractor
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 
@@ -23,10 +26,7 @@ class SimulationExtractor : WebExtractor() {
 
     private val validChars: List<Char> = ('a'..'z') + ('A'..'Z')
 
-    override fun login() {
-    }
-
-    override fun logoff() {
+    override suspend fun logoff() {
     }
 
     override suspend fun getNames(): Names {
@@ -34,6 +34,7 @@ class SimulationExtractor : WebExtractor() {
         if (Random.nextBoolean()) {
             for (i in 0 until Random.nextInt(0, 20)) {
                 val name = Name(
+                    0,
                     randomString(Random.nextInt(20)),
                     randomString(Random.nextInt(20))
                 )
@@ -52,9 +53,7 @@ class SimulationExtractor : WebExtractor() {
             .map(validChars::get)
             .joinToString("")
 
-    override fun shutdownExtractor() {
+    override suspend fun shutdownExtractor() {
     }
 
-    override fun initDriver() {
-    }
 }

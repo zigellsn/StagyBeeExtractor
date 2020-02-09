@@ -25,7 +25,8 @@ import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.zigellsn.webhookk.WebhookK
 import com.github.zigellsn.webhookk.add
-import com.github.zigellsn.webhookk.removeUrl
+import com.ze.stagybee.extractor.http.HttpExtractor
+import com.ze.stagybee.extractor.simulation.SimulationExtractor
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
@@ -54,15 +55,14 @@ import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import java.io.File
 import java.math.BigInteger
+import java.net.ConnectException
 import java.security.MessageDigest
 import java.text.DateFormat
 import java.time.LocalDateTime
@@ -112,57 +112,102 @@ val jobs = mutableMapOf<String, Job>()
 val listeners = mutableMapOf<String, Pair<String, Url>>()
 val json = jacksonObjectMapper()
 
+@InternalCoroutinesApi
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
 suspend fun startListener(extractor: Extractor, id: String) {
-    val job = extractor.getListeners().onEach {
-        if (it is Boolean) {
-            if (it) {
-                println("Running ID ${id}...")
-                webhooks.trigger(id) { url ->
-                    webhooks.post(
-                        url,
-                        TextContent(
-                            json.writeValueAsString(
-                                Status(
-                                    it
-                                )
-                            ), contentType = ContentType.Application.Json
-                        ),
-                        listOf(
-                            xStagyBeeExtractorEvent to listOf(
-                                eventStatus
-                            )
-                        )
-                    )
-                }.collect { }
-            }
-        } else {
-            webhooks.trigger(id) { url ->
-                webhooks.post(
-                    url,
-                    TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
-                    listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
-                )
-            }.collect { }
+    extractor.getListeners { flow ->
+        flow.onStart {
+            println("Running ID ${id}...")
+            triggerStatus(id, true)
+        }.onEach {
+            println(it)
+            triggerNames(id, it)
+        }.onCompletion {
+            println("Stopping ID ${id}...")
+            triggerStatus(id, true)
+        }.launchIn(GlobalScope)
+    }
+}
+
+@InternalCoroutinesApi
+private suspend fun triggerNames(id: String, it: Any) {
+    try {
+        webhooks.trigger(id) { url ->
+            webhooks.post(
+                url,
+                TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
+                listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
+            ).execute()
         }
-    }.launchIn(GlobalScope)
-    jobs[id] = job
-    //TODO: Send error
+    } catch (e: ConnectException) {
+        println(e.toString())
+    }
+}
+
+@InternalCoroutinesApi
+private suspend fun triggerSnapshot(topic: String) {
+    try {
+        webhooks.trigger(topic) { lUrl ->
+            webhooks.post(
+                lUrl,
+                TextContent(
+                    json.writeValueAsString(
+                        jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(
+                            emptyList()
+                        )
+                    ), contentType = ContentType.Application.Json
+                ),
+                listOf(
+                    xStagyBeeExtractorEvent to listOf(
+                        eventListeners
+                    )
+                )
+            ).execute()
+        }
+    } catch (e: ConnectException) {
+        print(e.toString())
+    }
+}
+
+@InternalCoroutinesApi
+private suspend fun triggerStatus(id: String, status: Boolean) {
+    try {
+        webhooks.trigger(id) { url ->
+            webhooks.post(
+                url,
+                TextContent(
+                    json.writeValueAsString(
+                        Status(
+                            status
+                        )
+                    ), contentType = ContentType.Application.Json
+                ),
+                listOf(
+                    xStagyBeeExtractorEvent to listOf(
+                        eventStatus
+                    )
+                )
+            ).execute()
+        }
+    } catch (e: ConnectException) {
+        println(e.toString())
+    }
 }
 
 class Proxy : CliktCommand() {
 
     private val proxyUrl: String? by option(help = "Proxy")
     private val serverPort: Int by option(help = "Port").int().default(8080)
-    private val driverBin: String? by option(help = "WebDriver Binary")
+    // private val driverBin: String? by option(help = "WebDriver Binary")
 
+    @InternalCoroutinesApi
     @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
     override fun run() {
         val env = applicationEngineEnvironment {
             module {
-                main(driverBin)
+                main(/*driverBin*/)
             }
             // Test API
             connector {
@@ -190,9 +235,10 @@ class Proxy : CliktCommand() {
 
 fun main(args: Array<String>) = Proxy().main(args)
 
+@InternalCoroutinesApi
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
-fun Application.main(driverBin: String?) {
+fun Application.main(/*driverBin: String?*/) {
     install(DefaultHeaders)
     install(CallLogging)
     install(ContentNegotiation) {
@@ -239,8 +285,8 @@ fun Application.main(driverBin: String?) {
                             call.request.local.port,
                             topic,
                             subscribeRequest,
-                            timeout,
-                            driverBin
+                            timeout
+                            // driverBin
                         )
                 } catch (err: Exception) {
                     call.response.headers.append(
@@ -253,29 +299,15 @@ fun Application.main(driverBin: String?) {
                     )
                     return@post
                 } finally {
-                    startListener(
-                        extractors[topic]
-                            ?: throw AssertionError("Set to null by another thread"), topic
-                    )
+                    jobs[topic] = GlobalScope.launch {
+                        startListener(
+                            extractors[topic]
+                                ?: throw AssertionError("Set to null by another thread"), topic
+                        )
+                    }
                 }
             } else {
-                webhooks.trigger(topic) { itl ->
-                    webhooks.post(
-                        itl,
-                        TextContent(
-                            json.writeValueAsString(
-                                jobs[topic]?.isActive ?: extractors[topic]?.getListenersSnapshot() ?: Names(
-                                    emptyList()
-                                )
-                            ), contentType = ContentType.Application.Json
-                        ),
-                        listOf(
-                            xStagyBeeExtractorEvent to listOf(
-                                eventListeners
-                            )
-                        )
-                    )
-                }.collect { }
+                triggerSnapshot(topic)
             }
 
             webhooks.topics.add(topic, url)
@@ -330,17 +362,18 @@ fun Application.main(driverBin: String?) {
     }
 }
 
+@InternalCoroutinesApi
 private suspend fun stopExtractor(sessionId: String?) {
     val session = listeners[sessionId] ?: throw AssertionError("")
     if (extractors.containsKey(session.first)) {
-        webhooks.topics.removeUrl(session.first, session.second)
+        webhooks.topics[session.first]?.remove(session.second)
         if (webhooks.topics[session.first]?.count() == 0) {
-
             webhooks.topics.remove(session.first)
             extractors[session.first]?.stopListener()
             jobs[session.first]?.cancelAndJoin()
             jobs.remove(session.first)
             extractors.remove(session.first)
+            triggerStatus(session.first, true)
             listeners.remove(sessionId)
             println("Stopped ID ${session.first}...")
         }
@@ -351,18 +384,17 @@ private fun createExtractor(
     port: Int,
     topic: String,
     subscribe: Subscribe,
-    timeout: Long,
-    driverBin: String?
+    timeout: Long
+    // driverBin: String?
 ): Extractor =
     if (port == 8080) {
-        JWConfExtractor(
+        HttpExtractor(
             topic,
             subscribe.congregation,
             subscribe.username,
             subscribe.password,
             FREQUENCY,
-            timeout,
-            driverBin
+            timeout
         )
     } else {
         SimulationExtractor()

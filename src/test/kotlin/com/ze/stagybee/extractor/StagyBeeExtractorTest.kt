@@ -24,16 +24,18 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.withTestApplication
 import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.InternalCoroutinesApi
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 
 class StagyBeeExtractorTest {
 
+    @InternalCoroutinesApi
     @Test
     @KtorExperimentalAPI
     @ExperimentalCoroutinesApi
-    fun testMeta() = withTestApplication({main("")}) {
+    fun testMeta() = withTestApplication({ main() }) {
         with(handleRequest(HttpMethod.Get, "/api/meta/")) {
             val content = File("meta.json").readText()
             assertEquals(HttpStatusCode.OK, response.status())
@@ -41,10 +43,11 @@ class StagyBeeExtractorTest {
         }
     }
 
+    @InternalCoroutinesApi
     @Test
     @KtorExperimentalAPI
     @ExperimentalCoroutinesApi
-    fun testSubscribeEmptyBody() = withTestApplication({main("")}) {
+    fun testSubscribeEmptyBody() = withTestApplication({ main() }) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe/") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
         }) {
@@ -52,10 +55,11 @@ class StagyBeeExtractorTest {
         }
     }
 
+    @InternalCoroutinesApi
     @Test
     @KtorExperimentalAPI
     @ExperimentalCoroutinesApi
-    fun testSubscribe() = withTestApplication({main("")}) {
+    fun testSubscribe() = withTestApplication({ main() }) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe/") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             // setBody(Subscribe())

@@ -1,7 +1,7 @@
 /*
  * Copyright 2019 Simon Zigelli
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
+ * Licensed under the Apache License, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
@@ -31,7 +31,7 @@ data class ExtractorStatus(
 )
 
 data class Name(
-    val familyName: String, val givenName: String, var requestToSpeak: Boolean = false,
+    val id: Int, val familyName: String, val givenName: String, var requestToSpeak: Boolean = false,
     var speaking: Boolean = false
 ) {
     var listenerCount: Int = 0
@@ -42,21 +42,19 @@ abstract class WebExtractor(
     protected open val timeout: Long = 1080000L
 ) : Extractor {
 
-    override fun stopListener() {
+    override suspend fun stopListener() {
         isActive = false
     }
 
     private val t0 by lazy { System.currentTimeMillis() + timeout }
     private val since by lazy { LocalDateTime.now()!! }
-    private var isActive: Boolean = false
+    protected var isActive: Boolean = false
     private val remaining
         get() = if (isActive) t0 - System.currentTimeMillis() else timeout
     override val status: ExtractorStatus
         get() = ExtractorStatus(isActive, since, remaining, timeout)
 
-    protected abstract fun login()
-
-    protected abstract fun logoff()
+    protected abstract suspend fun logoff()
 
     protected abstract suspend fun getNames(): Names
 
@@ -66,10 +64,17 @@ abstract class WebExtractor(
 
     @ExperimentalCoroutinesApi
     @InternalCoroutinesApi
-    override suspend fun getListeners() = flow {
+    override suspend fun getListeners(block: (Flow<Any>) -> Unit) {
         initExtractor()
-        var previousNames: Names? = null
         isActive = true
+        block(
+            names()
+        )
+        shutdownExtractor()
+    }
+
+    private fun names(): Flow<Any> = flow {
+        var previousNames: Names? = null
         emit(isActive)
         while (System.currentTimeMillis() < t0 && isActive) {
             val names = getNames()
@@ -80,25 +85,21 @@ abstract class WebExtractor(
             delay(frequency)
         }
         emit(isActive)
-        shutdownExtractor()
     }
 
-    protected open fun initExtractor() {
-        initDriver()
+    protected open suspend fun initExtractor() {
     }
 
-    protected open fun shutdownExtractor() {
+    protected open suspend fun shutdownExtractor() {
         logoff()
     }
-
-    protected abstract fun initDriver()
 }
 
 data class Names(val names: List<Name>)
 
 interface Extractor {
+    suspend fun getListeners(block: (Flow<Any>) -> Unit)
+    suspend fun stopListener()
     suspend fun getListenersSnapshot(): Names?
-    suspend fun getListeners(): Flow<Any>
-    fun stopListener()
     val status: ExtractorStatus
 }
