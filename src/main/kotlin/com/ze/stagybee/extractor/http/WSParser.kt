@@ -44,11 +44,11 @@ internal class WSParser {
     data class Action(val action: String,
                       @JsonTypeInfo(property = "action", include = JsonTypeInfo.As.EXTERNAL_PROPERTY, use = JsonTypeInfo.Id.NAME)
                       @JsonSubTypes(
-                          JsonSubTypes.Type(value = Data.AddRow::class, name = "addrow"),
-                          JsonSubTypes.Type(value = Data.DelRow::class, name = "delrow"),
-                          JsonSubTypes.Type(value = Data.Speech::class, name = "unmute"),
-                          JsonSubTypes.Type(value = Data.Speech::class, name = "newspeech"),
-                          JsonSubTypes.Type(value = Data.Speech::class, name = "delspeech")
+                          JsonSubTypes.Type(value = Data.AddRow::class, name = addRow),
+                          JsonSubTypes.Type(value = Data.DelRow::class, name = delRow),
+                          JsonSubTypes.Type(value = Data.Speech::class, name = unmute),
+                          JsonSubTypes.Type(value = Data.Speech::class, name = newSpeech),
+                          JsonSubTypes.Type(value = Data.Speech::class, name = delSpeech)
                       )
                       val data: Data
     )
@@ -61,5 +61,13 @@ internal class WSParser {
         } catch (e: MissingKotlinParameterException) {
             null
         }
+    }
+
+    companion object {
+        const val addRow = "addrow"
+        const val delRow = "delrow"
+        const val unmute = "unmute"
+        const val newSpeech = "newspeech"
+        const val delSpeech = "delspeech"
     }
 }

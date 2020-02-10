@@ -16,20 +16,32 @@
 
 package com.ze.stagybee.extractor.simulation
 
+import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
-import com.ze.stagybee.extractor.WebExtractor
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
 import kotlin.random.Random
 
-class SimulationExtractor : WebExtractor() {
+class SimulationExtractor : Extractor {
 
     private val validChars: List<Char> = ('a'..'z') + ('A'..'Z')
 
-    override suspend fun logoff() {
+    @ExperimentalCoroutinesApi
+    @InternalCoroutinesApi
+    override suspend fun getListeners(block: suspend (Names) -> Unit) {
+        names().collect {
+            block(it)
+        }
     }
 
-    override suspend fun getNames(): Names {
+    override suspend fun stopListener() {
+    }
+
+    override suspend fun getListenersSnapshot(): Names {
         val names = mutableListOf<Name>()
         if (Random.nextBoolean()) {
             for (i in 0 until Random.nextInt(0, 20)) {
@@ -48,12 +60,14 @@ class SimulationExtractor : WebExtractor() {
         return Names(names)
     }
 
+    private suspend fun names() = flow {
+        while (true) {
+            emit(getListenersSnapshot())
+        }
+    }
+
     private fun randomString(length: Int) =
         (1..length).map { Random.nextInt(0, validChars.size) }
             .map(validChars::get)
             .joinToString("")
-
-    override suspend fun shutdownExtractor() {
-    }
-
 }

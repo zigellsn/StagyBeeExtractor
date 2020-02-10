@@ -16,12 +16,11 @@
 
 package com.ze.stagybee.extractor.http
 
+import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
-import com.ze.stagybee.extractor.WebExtractor
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.engine.cio.endpoint
 import io.ktor.client.features.cookies.AcceptAllCookiesStorage
 import io.ktor.client.features.cookies.HttpCookies
 import io.ktor.client.features.websocket.WebSockets
@@ -37,7 +36,6 @@ import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.InternalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 
@@ -45,10 +43,8 @@ open class HttpExtractor(
     private val id: String? = "",
     private val congregation: String? = "",
     private val username: String? = "",
-    private val password: String? = "",
-    frequency: Long = 1000L,
-    override val timeout: Long = 1080000L
-) : WebExtractor(frequency, timeout) {
+    private val password: String? = ""
+) : Extractor {
 
     @KtorExperimentalAPI
     private val client = HttpClient(CIO) {
@@ -57,27 +53,51 @@ open class HttpExtractor(
         }
         install(WebSockets)
         expectSuccess = false
-        engine {
-            endpoint {
-                connectTimeout = timeout
-                requestTimeout = timeout
-            }
-        }
     }
     private val parser = WSParser()
     private val names = mutableListOf<Name>()
 
     @KtorExperimentalAPI
-    override suspend fun logoff() {
+    override suspend fun stopListener() {
         client.get<String>(urlLogout)
         client.close()
     }
 
+    override suspend fun getListenersSnapshot(): Names = Names(names)
+
+    @ExperimentalCoroutinesApi
     @FlowPreview
     @KtorExperimentalAPI
-    @ExperimentalCoroutinesApi
-    override suspend fun getNames(): Names {
-        return Names(names)
+    @InternalCoroutinesApi
+    override suspend fun getListeners(block: suspend (Names) -> Unit) {
+        if (id != null && id.length == 12) {
+            client.post<String>("$urlAutoLogin${id}")
+        } else {
+            val myBody =
+                "loginstatus=auth&congregation=${congregation}&congregation_id=&username=${username}&password=${password}"
+            client.post<String> {
+                url(sUrl)
+                body = myBody
+                headers {
+                    append("Content-Type", "application/x-www-form-urlencoded")
+                }
+            }
+        }
+        client.ws(
+            method = HttpMethod.Get,
+            host = webSocketUrl,
+            port = webSocketPort,
+            path = webSocketPath
+        ) {
+            incoming.consumeAsFlow().collect { frame ->
+                when (frame) {
+                    is Frame.Text -> {
+                        processMessages(frame.readText())
+                        block(Names(names))
+                    }
+                }
+            }
+        }
     }
 
     private fun processMessages(message: String) {
@@ -90,72 +110,20 @@ open class HttpExtractor(
                 })
             }
             is WSParser.Data.DelRow -> {
-                val row = findName(action.data.id) ?: return
+                val row = names.find { it.id == action.data.id } ?: return
                 names.remove(row)
             }
             is WSParser.Data.Speech -> {
                 val row = action.data as WSParser.Data.Speech
-                names[names.indexOf(findName(action.data.id))].requestToSpeak = row.speechrequest
-                names[names.indexOf(findName(action.data.id))].speaking = row.mutestatus
+                names[names.indexOf(names.find { it.id == action.data.id })].requestToSpeak = row.speechrequest
+                names[names.indexOf(names.find { it.id == action.data.id })].speaking = row.mutestatus
             }
-        }
-    }
-
-    private fun findName(id: Int): Name? {
-        return names.find { it.id == id }
-    }
-
-    override suspend fun stopListener() {
-        isActive = false
-        shutdownExtractor()
-    }
-
-    @ExperimentalCoroutinesApi
-    @FlowPreview
-    @KtorExperimentalAPI
-    @InternalCoroutinesApi
-    override suspend fun getListeners(block: (Flow<Any>) -> Unit) {
-        if (id != null && id.length == 12) {
-            client.post<String>("$urlAutoLogin${id}")
-        } else {
-            val myBody =
-                "loginstatus=auth&congregation=${congregation}&congregation_id=&username=${username}&password=${password}"
-            client.post<String> {
-                url(surl)
-                body = myBody
-                headers {
-                    append("Content-Type", "application/x-www-form-urlencoded")
-                }
-            }
-        }
-        isActive = true
-        client.ws(
-            method = HttpMethod.Get,
-            host = webSocketUrl,
-            port = webSocketPort,
-            path = webSocketPath
-        ) {
-            incoming.consumeAsFlow().collect { frame ->
-                when (frame) {
-                    is Frame.Text -> {
-                        println(processMessages(frame.readText()))
-                    }
-                }
-            }
-            /* block(incoming.consumeAsFlow().map { frame ->
-                when (frame) {
-                    is Frame.Text -> {
-                        processMessages(frame.readText())
-                    }
-                }
-                Names(names)
-            }) */
         }
     }
 
     companion object {
         const val urlAutoLogin = "https://jwconf.org/stage.php?key="
-        const val surl = "https://jwconf.org/login.php"
+        const val sUrl = "https://jwconf.org/login.php"
         const val urlLogout = "https://jwconf.org/index.php?logout"
         const val webSocketUrl = "jwconf.org"
         const val webSocketPath = "/websocket"

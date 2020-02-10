@@ -1,0 +1,19 @@
+### Subscribe
+POST http://127.0.0.1:9090/api/subscribe/
+Content-Type: application/json
+
+{
+  "congregation": "Congregation",
+  "username": "username",
+  "password": "password",
+  "url": "http://localhost/reveiver"
+}
+
+### Unsubscribe
+DELETE http://127.0.0.1:9090/api/unsubscribe/786aaefa-17a9-4976-8980-375c6c8da531/
+
+### Get Status
+GET http://127.0.0.1:9090/api/status/786aaefa-17a9-4976-8980-375c6c8da531/
+
+### Meta
+GET http://127.0.0.1:9090/api/meta/

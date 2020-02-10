@@ -35,7 +35,6 @@ dependencies {
     implementation("com.github.zigellsn:WebhookK:0.1.5-alpha")
     implementation(kotlin("stdlib"))
     implementation("org.slf4j:slf4j-jdk14:1.7.28")
-    implementation("org.seleniumhq.selenium:selenium-java:3.141.59")
     implementation("com.github.ajalt:clikt:2.4.0")
     implementation("io.ktor:ktor-client:1.3.1")
     implementation("io.ktor:ktor-client-cio:1.3.1")
