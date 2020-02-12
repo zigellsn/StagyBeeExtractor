@@ -5,9 +5,6 @@ RUN gradle build --no-daemon
 
 FROM openjdk:8-jre-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends chromedriver && \
-    rm -rf /var/lib/apt/lists/*
-
 ENV KTOR_USER ktor
 ENV HOME /home/$KTOR_USER
 RUN useradd --create-home $KTOR_USER && \
@@ -18,6 +15,7 @@ WORKDIR $HOME/app
 USER $KTOR_USER
 
 COPY --from=build /home/gradle/src/build/libs/*.jar ./
-EXPOSE 8080 
+EXPOSE 8080
+EXPOSE 9090
 
 ENTRYPOINT [ "java", "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:InitialRAMFraction=2", "-XX:MinRAMFraction=2", "-XX:MaxRAMFraction=2", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-XX:+UseStringDeduplication", "-jar", "StagyBeeExtractor.jar" ]
