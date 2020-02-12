@@ -71,7 +71,7 @@ open class HttpExtractor(
     @InternalCoroutinesApi
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         if (id != null && id.length == 12) {
-            client.post<String>("$urlAutoLogin${id}")
+            client.get<String>("$urlAutoLogin${id}")
         } else {
             val myBody =
                 "loginstatus=auth&congregation=${congregation}&congregation_id=&username=${username}&password=${password}"

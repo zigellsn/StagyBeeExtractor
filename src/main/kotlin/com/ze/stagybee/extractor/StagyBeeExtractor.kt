@@ -31,6 +31,7 @@ import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.ClientEngineClosedException
 import io.ktor.client.engine.ProxyBuilder
 import io.ktor.client.engine.ProxyConfig
 import io.ktor.client.engine.cio.CIO
@@ -56,6 +57,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import java.io.File
 import java.math.BigInteger
 import java.net.ConnectException
@@ -319,7 +321,7 @@ private suspend fun triggerNames(id: String, it: Any) {
                 TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
                 listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
             ).execute()
-        }
+        }.collect{  }
     } catch (e: ConnectException) {
         println(e.toString())
     }
@@ -345,7 +347,7 @@ private suspend fun triggerSnapshot(congregationId: CongregationId) {
                     )
                 )
             ).execute()
-        }
+        }.collect{  }
     } catch (e: ConnectException) {
         print(e.toString())
     }
@@ -370,7 +372,7 @@ private suspend fun triggerStatus(id: String, status: Boolean) {
                     )
                 )
             ).execute()
-        }
+        }.collect{  }
     } catch (e: ConnectException) {
         println(e.toString())
     }
@@ -385,7 +387,11 @@ private suspend fun stopExtractor(sessionId: SessionId) {
     if (webhooks.topics[congregationId]?.count() == 0) {
         webhooks.topics.remove(congregationId)
         extractor.extractor.stopListener()
-        extractor.job?.cancelAndJoin()
+        try {
+            extractor.job?.cancelAndJoin()
+        } catch (e: ClientEngineClosedException) {
+            print(e.toString())
+        }
         extractors.remove(congregationId)
         println("Stopped ID ${congregationId}...")
     }
