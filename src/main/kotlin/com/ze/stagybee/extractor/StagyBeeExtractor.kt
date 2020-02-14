@@ -321,7 +321,11 @@ private suspend fun triggerNames(id: String, it: Any) {
                 TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
                 listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
             ).execute()
-        }.collect{  }
+        }.collect { res ->
+            applicationEngineEnvironment {
+                log.trace("Names: $res")
+            }
+        }
     } catch (e: ConnectException) {
         println(e.toString())
     }
@@ -347,7 +351,11 @@ private suspend fun triggerSnapshot(congregationId: CongregationId) {
                     )
                 )
             ).execute()
-        }.collect{  }
+        }.collect { res ->
+            applicationEngineEnvironment {
+                log.trace("Snapshot: $res")
+            }
+        }
     } catch (e: ConnectException) {
         print(e.toString())
     }
@@ -372,7 +380,11 @@ private suspend fun triggerStatus(id: String, status: Boolean) {
                     )
                 )
             ).execute()
-        }.collect{  }
+        }.collect { res ->
+            applicationEngineEnvironment {
+                log.trace("Status: $res")
+            }
+        }
     } catch (e: ConnectException) {
         println(e.toString())
     }

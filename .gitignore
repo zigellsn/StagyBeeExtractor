@@ -133,4 +133,7 @@ gradle-app.setting
 ### Gradle Patch ###
 **/build/
 
+### Custom ###
+connect.http
+
 # End of https://www.gitignore.io/api/gradle,kotlin,intellij

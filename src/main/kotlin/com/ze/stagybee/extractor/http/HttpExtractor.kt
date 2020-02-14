@@ -70,19 +70,7 @@ open class HttpExtractor(
     @KtorExperimentalAPI
     @InternalCoroutinesApi
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
-        if (id != null && id.length == 12) {
-            client.get<String>("$urlAutoLogin${id}")
-        } else {
-            val myBody =
-                "loginstatus=auth&congregation=${congregation}&congregation_id=&username=${username}&password=${password}"
-            client.post<String> {
-                url(sUrl)
-                body = myBody
-                headers {
-                    append("Content-Type", "application/x-www-form-urlencoded")
-                }
-            }
-        }
+        login()
         client.ws(
             method = HttpMethod.Get,
             host = webSocketUrl,
@@ -95,6 +83,23 @@ open class HttpExtractor(
                         processMessages(frame.readText())
                         block(Names(names))
                     }
+                }
+            }
+        }
+    }
+
+    @KtorExperimentalAPI
+    private suspend fun login() {
+        if (this.id != null && this.id.length == 12) {
+            client.get<String>("$urlAutoLogin${this.id}")
+        } else {
+            val myBody =
+                "loginstatus=auth&congregation=${this.congregation}&congregation_id=&username=${this.username}&password=${this.password}"
+            client.post<String> {
+                url(sUrl)
+                body = myBody
+                headers {
+                    append("Content-Type", "application/x-www-form-urlencoded")
                 }
             }
         }

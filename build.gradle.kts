@@ -23,7 +23,7 @@ plugins {
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0-SNAPSHOT"
+version = "0.2-alpha"
 
 repositories {
     jcenter()
@@ -32,9 +32,9 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.zigellsn:WebhookK:0.1.5-alpha")
     implementation(kotlin("stdlib"))
-    implementation("org.slf4j:slf4j-jdk14:1.7.28")
+    implementation("com.github.zigellsn:WebhookK:0.1.5-alpha")
+    implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.github.ajalt:clikt:2.4.0")
     implementation("io.ktor:ktor-client:1.3.1")
     implementation("io.ktor:ktor-client-cio:1.3.1")
