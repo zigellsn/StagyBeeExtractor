@@ -303,12 +303,16 @@ fun Application.main() {
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
 suspend fun startListener(extractor: ExtractorSession, id: String) {
-    println("Running ID ${id}...")
+    applicationEngineEnvironment {
+        log.info("Running ID ${id}...")
+    }
     triggerStatus(id, true)
     extractor.extractor.getListeners {
         triggerNames(id, it)
     }
-    println("Stopping ID ${id}...")
+    applicationEngineEnvironment {
+        log.info("Stopping ID ${id}...")
+    }
     triggerStatus(id, true)
 }
 
@@ -327,7 +331,9 @@ private suspend fun triggerNames(id: String, it: Any) {
             }
         }
     } catch (e: ConnectException) {
-        println(e.toString())
+        applicationEngineEnvironment {
+            log.trace(e.toString())
+        }
     }
 }
 
@@ -357,7 +363,9 @@ private suspend fun triggerSnapshot(congregationId: CongregationId) {
             }
         }
     } catch (e: ConnectException) {
-        print(e.toString())
+        applicationEngineEnvironment {
+            log.trace(e.toString())
+        }
     }
 }
 
@@ -386,7 +394,9 @@ private suspend fun triggerStatus(id: String, status: Boolean) {
             }
         }
     } catch (e: ConnectException) {
-        println(e.toString())
+        applicationEngineEnvironment {
+            log.trace(e.toString())
+        }
     }
 }
 
@@ -402,10 +412,15 @@ private suspend fun stopExtractor(sessionId: SessionId) {
         try {
             extractor.job?.cancelAndJoin()
         } catch (e: ClientEngineClosedException) {
-            print(e.toString())
+            applicationEngineEnvironment {
+                log.trace(e.toString())
+            }
         }
         extractors.remove(congregationId)
-        println("Stopped ID ${congregationId}...")
+
+        applicationEngineEnvironment {
+            log.info("Stopped ID ${congregationId}...")
+        }
     }
 }
 
