@@ -219,6 +219,9 @@ fun Application.main() {
                         ).also {
                             it.listeners[sessionId] = url
                         }
+                    applicationEngineEnvironment {
+                        log.trace("Connecting session $sessionId")
+                    }
                 } catch (err: Exception) {
                     call.response.headers.append(
                         xStagyBeeExtractorEvent,
@@ -246,7 +249,8 @@ fun Application.main() {
                     }
                 }
             } else {
-                triggerSnapshot(congregationId)
+                if (extractors[congregationId]?.job?.isActive == true)
+                    triggerSnapshot(congregationId, url)
             }
 
             webhooks.topics.add(congregationId, url)
@@ -306,14 +310,14 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
     applicationEngineEnvironment {
         log.info("Running ID ${id}...")
     }
-    triggerStatus(id, true)
+    triggerStatus(id, true, extractor)
     extractor.extractor.getListeners {
         triggerNames(id, it)
     }
     applicationEngineEnvironment {
         log.info("Stopping ID ${id}...")
     }
-    triggerStatus(id, true)
+    triggerStatus(id, false, extractor)
 }
 
 @InternalCoroutinesApi
@@ -338,30 +342,23 @@ private suspend fun triggerNames(id: String, it: Any) {
 }
 
 @InternalCoroutinesApi
-private suspend fun triggerSnapshot(congregationId: CongregationId) {
+private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     try {
-        webhooks.trigger(congregationId) { lUrl ->
-            webhooks.post(
-                lUrl,
-                TextContent(
-                    json.writeValueAsString(
-                        extractors[congregationId]?.job?.isActive
-                            ?: extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
-                                emptyList()
-                            )
-                    ), contentType = ContentType.Application.Json
-                ),
-                listOf(
-                    xStagyBeeExtractorEvent to listOf(
-                        eventListeners
+        webhooks.post(
+            url,
+            TextContent(
+                json.writeValueAsString(
+                    extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
+                        emptyList()
                     )
+                ), contentType = ContentType.Application.Json
+            ),
+            listOf(
+                xStagyBeeExtractorEvent to listOf(
+                    eventListeners
                 )
-            ).execute()
-        }.collect { res ->
-            applicationEngineEnvironment {
-                log.trace("Snapshot: $res")
-            }
-        }
+            )
+        )
     } catch (e: ConnectException) {
         applicationEngineEnvironment {
             log.trace(e.toString())
@@ -370,7 +367,7 @@ private suspend fun triggerSnapshot(congregationId: CongregationId) {
 }
 
 @InternalCoroutinesApi
-private suspend fun triggerStatus(id: String, status: Boolean) {
+private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
     try {
         webhooks.trigger(id) { url ->
             webhooks.post(
@@ -378,7 +375,10 @@ private suspend fun triggerStatus(id: String, status: Boolean) {
                 TextContent(
                     json.writeValueAsString(
                         Status(
-                            status
+                            status,
+                            extractor.since,
+                            extractor.remaining,
+                            extractor.timeoutSpan
                         )
                     ), contentType = ContentType.Application.Json
                 ),
@@ -410,7 +410,7 @@ private suspend fun stopExtractor(sessionId: SessionId) {
         webhooks.topics.remove(congregationId)
         extractor.extractor.stopListener()
         try {
-            extractor.job?.cancelAndJoin()
+            extractor.job?.cancel()
         } catch (e: ClientEngineClosedException) {
             applicationEngineEnvironment {
                 log.trace(e.toString())

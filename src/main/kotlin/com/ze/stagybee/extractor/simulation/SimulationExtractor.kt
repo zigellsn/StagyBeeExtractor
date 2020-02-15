@@ -21,6 +21,7 @@ import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
@@ -34,7 +35,8 @@ class SimulationExtractor : Extractor {
     @InternalCoroutinesApi
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         names().collect {
-            block(it)
+            if (isActive)
+                block(it)
         }
     }
 
@@ -60,8 +62,9 @@ class SimulationExtractor : Extractor {
         return Names(names)
     }
 
+    @InternalCoroutinesApi
     private suspend fun names() = flow {
-        while (true) {
+        while (isActive) {
             emit(getListenersSnapshot())
         }
     }
