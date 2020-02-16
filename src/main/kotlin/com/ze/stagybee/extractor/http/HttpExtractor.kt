@@ -30,12 +30,15 @@ import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.HttpMethod
+import io.ktor.http.cio.websocket.CloseReason
 import io.ktor.http.cio.websocket.Frame
 import io.ktor.http.cio.websocket.readText
+import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 
@@ -69,27 +72,41 @@ open class HttpExtractor(
     @FlowPreview
     @KtorExperimentalAPI
     @InternalCoroutinesApi
-    override suspend fun getListeners(block: suspend (Names) -> Unit) {
-        login()
+    override suspend fun getListeners(block: suspend (Names) -> Unit): CloseReason? {
+        var myCloseReason: CloseReason? = null
         client.ws(
             method = HttpMethod.Get,
             host = webSocketUrl,
             port = webSocketPort,
             path = webSocketPath
         ) {
-            incoming.consumeAsFlow().collect { frame ->
-                when (frame) {
-                    is Frame.Text -> {
-                        processMessages(frame.readText())
-                        block(Names(names))
+            try {
+                incoming.consumeAsFlow().collect { frame ->
+                    when (frame) {
+                        is Frame.Text -> {
+                            processMessages(frame.readText())
+                            block(Names(names))
+                        }
                     }
+                }
+            } catch (e: ClosedReceiveChannelException) {
+                myCloseReason = closeReason.await()
+                applicationEngineEnvironment {
+                    log.trace("onClose: $myCloseReason")
+                }
+            } catch (e: Throwable) {
+                myCloseReason = closeReason.await()
+                applicationEngineEnvironment {
+                    log.trace("onError: $myCloseReason")
+                    log.trace(e.toString())
                 }
             }
         }
+        return myCloseReason
     }
 
     @KtorExperimentalAPI
-    private suspend fun login() {
+    override suspend fun login() {
         if (this.id != null && this.id.length == 12) {
             client.get<String>("$urlAutoLogin${this.id}")
         } else {

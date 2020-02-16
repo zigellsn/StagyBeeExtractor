@@ -57,6 +57,7 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.*
+import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.flow.collect
 import java.io.File
 import java.math.BigInteger
@@ -307,12 +308,18 @@ fun Application.main() {
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
 suspend fun startListener(extractor: ExtractorSession, id: String) {
+    var isRunning = true
+    extractor.extractor.login()
     applicationEngineEnvironment {
         log.info("Running ID ${id}...")
     }
     triggerStatus(id, true, extractor)
-    extractor.extractor.getListeners {
-        triggerNames(id, it)
+    while (isActive && isRunning) {
+        val reason = extractor.extractor.getListeners {
+            triggerNames(id, it)
+        }
+        if (reason == null)
+            isRunning = false
     }
     applicationEngineEnvironment {
         log.info("Stopping ID ${id}...")

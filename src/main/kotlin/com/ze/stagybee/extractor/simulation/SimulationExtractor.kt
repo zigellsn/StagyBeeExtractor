@@ -19,6 +19,7 @@ package com.ze.stagybee.extractor.simulation
 import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
+import io.ktor.http.cio.websocket.CloseReason
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.NonCancellable.isActive
@@ -30,14 +31,17 @@ import kotlin.random.Random
 class SimulationExtractor : Extractor {
 
     private val validChars: List<Char> = ('a'..'z') + ('A'..'Z')
+    override suspend fun login() {
+    }
 
     @ExperimentalCoroutinesApi
     @InternalCoroutinesApi
-    override suspend fun getListeners(block: suspend (Names) -> Unit) {
+    override suspend fun getListeners(block: suspend (Names) -> Unit): CloseReason? {
         names().collect {
             if (isActive)
                 block(it)
         }
+        return null
     }
 
     override suspend fun stopListener() {

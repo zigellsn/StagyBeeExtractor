@@ -23,7 +23,7 @@ plugins {
 }
 
 group = "com.ze.stagybee.extractor"
-version = "0.3-alpha"
+version = "0.4-alpha"
 
 repositories {
     jcenter()
