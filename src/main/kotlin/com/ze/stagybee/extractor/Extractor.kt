@@ -29,7 +29,7 @@ data class Names(val names: List<Name>)
 
 interface Extractor {
     suspend fun login()
-    suspend fun getListeners(block: suspend (Names) -> Unit): CloseReason?
+    suspend fun getListeners(block: suspend (Names) -> Unit)
     suspend fun stopListener()
     suspend fun getListenersSnapshot(): Names
 }

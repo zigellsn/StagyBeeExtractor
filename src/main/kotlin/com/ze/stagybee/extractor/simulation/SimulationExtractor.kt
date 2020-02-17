@@ -36,12 +36,11 @@ class SimulationExtractor : Extractor {
 
     @ExperimentalCoroutinesApi
     @InternalCoroutinesApi
-    override suspend fun getListeners(block: suspend (Names) -> Unit): CloseReason? {
+    override suspend fun getListeners(block: suspend (Names) -> Unit) {
         names().collect {
             if (isActive)
                 block(it)
         }
-        return null
     }
 
     override suspend fun stopListener() {

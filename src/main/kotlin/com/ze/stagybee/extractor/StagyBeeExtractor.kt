@@ -57,7 +57,6 @@ import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.*
-import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.flow.collect
 import java.io.File
 import java.math.BigInteger
@@ -77,8 +76,8 @@ const val actionUnsubscribe = "unsubscribe"
 const val actionStatus = "status"
 const val actionMeta = "meta"
 
-const val THREE_HOURS = 1080000L
-const val QUARTER_HOUR = 90000L
+const val THREE_HOURS = 10_800_000L
+const val QUARTER_HOUR = 900_000L
 
 typealias CongregationId = String
 typealias SessionId = String
@@ -234,8 +233,8 @@ fun Application.main() {
                     )
                     return@post
                 } finally {
-                    try {
-                        extractors[congregationId]?.job = GlobalScope.launch {
+                    extractors[congregationId]?.job = GlobalScope.launch {
+                        try {
                             withTimeout(
                                 extractors[congregationId]?.timeoutSpan ?: throw AssertionError("Internal error")
                             ) {
@@ -244,9 +243,13 @@ fun Application.main() {
                                         ?: throw AssertionError("Set to null by another thread"), congregationId
                                 )
                             }
+                        } catch (e: TimeoutCancellationException) {
+                            applicationEngineEnvironment {
+                                log.trace(e.toString())
+                            }
+                        } finally {
+                            terminateExtractor(sessionId)
                         }
-                    } finally {
-                        extractors[congregationId]?.extractor?.stopListener()
                     }
                 }
             } else {
@@ -282,7 +285,7 @@ fun Application.main() {
                 call.respond(Status(running = false))
                 return@get
             }
-            val extractor = extractors.getBySessionId(sessionId)
+            val extractor = extractors.getBySessionId(sessionId) ?: return@get
             call.respond(
                 Status(
                     true,
@@ -308,18 +311,13 @@ fun Application.main() {
 @KtorExperimentalAPI
 @ExperimentalCoroutinesApi
 suspend fun startListener(extractor: ExtractorSession, id: String) {
-    var isRunning = true
     extractor.extractor.login()
     applicationEngineEnvironment {
         log.info("Running ID ${id}...")
     }
     triggerStatus(id, true, extractor)
-    while (isActive && isRunning) {
-        val reason = extractor.extractor.getListeners {
-            triggerNames(id, it)
-        }
-        if (reason == null)
-            isRunning = false
+    extractor.extractor.getListeners {
+        triggerNames(id, it)
     }
     applicationEngineEnvironment {
         log.info("Stopping ID ${id}...")
@@ -409,25 +407,33 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
 
 @InternalCoroutinesApi
 private suspend fun stopExtractor(sessionId: SessionId) {
-    val extractor = extractors.getBySessionId(sessionId)
+    val extractor = extractors.getBySessionId(sessionId) ?: return
     val session = extractor.listeners[sessionId]
     val congregationId = extractors.filterValues { it == extractor }.keys.first()
     webhooks.topics[congregationId]?.remove(session)
     if (webhooks.topics[congregationId]?.count() == 0) {
-        webhooks.topics.remove(congregationId)
-        extractor.extractor.stopListener()
-        try {
-            extractor.job?.cancel()
-        } catch (e: ClientEngineClosedException) {
-            applicationEngineEnvironment {
-                log.trace(e.toString())
-            }
-        }
-        extractors.remove(congregationId)
+        terminateExtractor(sessionId)
+    }
+}
 
+@InternalCoroutinesApi
+private suspend fun terminateExtractor(sessionId: SessionId) {
+    val extractor = extractors.getBySessionId(sessionId) ?: return
+    val congregationId = extractors.filterValues { it == extractor }.keys.first()
+    triggerStatus(congregationId, false, extractor)
+    webhooks.topics.remove(congregationId)
+    extractor.extractor.stopListener()
+    try {
+        extractor.job?.cancel()
+    } catch (e: ClientEngineClosedException) {
         applicationEngineEnvironment {
-            log.info("Stopped ID ${congregationId}...")
+            log.trace(e.toString())
         }
+    }
+    extractors.remove(congregationId)
+
+    applicationEngineEnvironment {
+        log.info("Stopped ID ${congregationId}...")
     }
 }
 
@@ -491,7 +497,12 @@ private fun ExtractorSessions.containsSessionId(sessionId: SessionId): Boolean =
         extractor.value.listeners.contains(sessionId)
     }.isNotEmpty()
 
-private fun ExtractorSessions.getBySessionId(sessionId: SessionId): ExtractorSession =
-    this.filter { extractor ->
+private fun ExtractorSessions.getBySessionId(sessionId: SessionId): ExtractorSession? {
+    val collection = this.filter { extractor ->
         extractor.value.listeners.contains(sessionId)
-    }.values.first()
+    }.values
+    return if (collection.isNotEmpty())
+        collection.first()
+    else
+        null
+}

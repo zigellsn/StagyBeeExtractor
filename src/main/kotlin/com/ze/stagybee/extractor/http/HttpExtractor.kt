@@ -30,7 +30,6 @@ import io.ktor.client.request.headers
 import io.ktor.client.request.post
 import io.ktor.client.request.url
 import io.ktor.http.HttpMethod
-import io.ktor.http.cio.websocket.CloseReason
 import io.ktor.http.cio.websocket.Frame
 import io.ktor.http.cio.websocket.readText
 import io.ktor.server.engine.applicationEngineEnvironment
@@ -72,8 +71,7 @@ open class HttpExtractor(
     @FlowPreview
     @KtorExperimentalAPI
     @InternalCoroutinesApi
-    override suspend fun getListeners(block: suspend (Names) -> Unit): CloseReason? {
-        var myCloseReason: CloseReason? = null
+    override suspend fun getListeners(block: suspend (Names) -> Unit) {
         client.ws(
             method = HttpMethod.Get,
             host = webSocketUrl,
@@ -90,19 +88,14 @@ open class HttpExtractor(
                     }
                 }
             } catch (e: ClosedReceiveChannelException) {
-                myCloseReason = closeReason.await()
-                applicationEngineEnvironment {
-                    log.trace("onClose: $myCloseReason")
-                }
+                print(closeReason.await())
             } catch (e: Throwable) {
-                myCloseReason = closeReason.await()
+                print(closeReason.await())
                 applicationEngineEnvironment {
-                    log.trace("onError: $myCloseReason")
                     log.trace(e.toString())
                 }
             }
         }
-        return myCloseReason
     }
 
     @KtorExperimentalAPI
