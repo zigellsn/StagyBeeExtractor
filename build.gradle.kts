@@ -17,13 +17,13 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
-    kotlin("jvm") version "1.3.61"
+    kotlin("jvm") version "1.3.70"
     id("com.github.johnrengelman.shadow") version "5.2.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "0.4-alpha"
+version = "0.5-alpha"
 
 repositories {
     jcenter()
@@ -33,7 +33,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("com.github.zigellsn:WebhookK:0.1.6-alpha")
+    implementation("com.github.zigellsn:WebhookK:0.1.7-alpha")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.github.ajalt:clikt:2.4.0")
     implementation("io.ktor:ktor-client:1.3.1")

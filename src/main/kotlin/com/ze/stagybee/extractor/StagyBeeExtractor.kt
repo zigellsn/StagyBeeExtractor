@@ -419,7 +419,10 @@ private suspend fun stopExtractor(sessionId: SessionId) {
 @InternalCoroutinesApi
 private suspend fun terminateExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
-    val congregationId = extractors.filterValues { it == extractor }.keys.first()
+    val keys = extractors.filterValues { it == extractor }.keys
+    if (keys.isEmpty())
+        return
+    val congregationId = keys.first()
     triggerStatus(congregationId, false, extractor)
     webhooks.topics.remove(congregationId)
     extractor.extractor.stopListener()

@@ -120,9 +120,17 @@ open class HttpExtractor(
         when (action?.data) {
             is WSParser.Data.AddRow -> {
                 val row = action.data as WSParser.Data.AddRow
-                names.add(Name(row.id, row.sn, row.gn, row.speechrequest, row.mutestatus).also {
-                    it.listenerCount = row.listener
-                })
+                names.add(
+                    Name(
+                        row.id,
+                        row.sn,
+                        row.gn,
+                        row.speechrequest,
+                        row.mutestatus,
+                        listenerType = row.type
+                    ).also {
+                        it.listenerCount = row.listener
+                    })
             }
             is WSParser.Data.DelRow -> {
                 val row = names.find { it.id == action.data.id } ?: return
