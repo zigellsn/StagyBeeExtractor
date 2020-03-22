@@ -243,10 +243,11 @@ fun Application.main() {
                                         ?: throw AssertionError("Set to null by another thread"), congregationId
                                 )
                             }
-                        } catch (e: TimeoutCancellationException) {
+                        } catch (e: Exception) {
                             applicationEngineEnvironment {
                                 log.trace(e.toString())
                             }
+                            terminateExtractor(sessionId)
                         } finally {
                             terminateExtractor(sessionId)
                         }

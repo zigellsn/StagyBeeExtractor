@@ -19,7 +19,6 @@ package com.ze.stagybee.extractor.simulation
 import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
-import io.ktor.http.cio.websocket.CloseReason
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.NonCancellable.isActive
@@ -27,6 +26,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlin.random.Random
+import kotlin.random.nextInt
 
 class SimulationExtractor : Extractor {
 
@@ -49,15 +49,16 @@ class SimulationExtractor : Extractor {
     override suspend fun getListenersSnapshot(): Names {
         val names = mutableListOf<Name>()
         if (Random.nextBoolean()) {
-            for (i in 0 until Random.nextInt(0, 20)) {
+            for (i in 0 until Random.nextInt(0..20)) {
                 val name = Name(
                     0,
                     randomString(Random.nextInt(20)),
-                    randomString(Random.nextInt(20))
+                    randomString(Random.nextInt(20)),
+                    listenerType = Random.nextInt(3..4)
                 )
                 name.requestToSpeak = Random.nextBoolean()
                 name.speaking = Random.nextBoolean()
-                name.listenerCount = Random.nextInt(1, 9)
+                name.listenerCount = Random.nextInt(1..9)
                 names.add(name)
             }
         }
