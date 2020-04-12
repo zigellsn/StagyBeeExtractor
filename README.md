@@ -1,5 +1,7 @@
 # StagyBeeExtractor
 
+![Java CI](https://github.com/zigellsn/StagyBeeExtractor/workflows/Java%20CI/badge.svg)
+
 ## Actions
 
 ### Subscribe
