@@ -17,7 +17,7 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
-    kotlin("jvm") version "1.3.70"
+    kotlin("jvm") version "1.3.71"
     id("com.github.johnrengelman.shadow") version "5.2.0"
     application
 }
@@ -35,15 +35,15 @@ dependencies {
     implementation(kotlin("stdlib"))
     implementation("com.github.zigellsn:WebhookK:0.1.7-alpha")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("com.github.ajalt:clikt:2.4.0")
-    implementation("io.ktor:ktor-client:1.3.1")
-    implementation("io.ktor:ktor-client-cio:1.3.1")
-    implementation("io.ktor:ktor-client-gson:1.3.1")
-    implementation("io.ktor:ktor-server-netty:1.3.1")
-    implementation("io.ktor:ktor-jackson:1.3.1")
+    implementation("com.github.ajalt:clikt:2.6.0")
+    implementation("io.ktor:ktor-client:1.3.2")
+    implementation("io.ktor:ktor-client-cio:1.3.2")
+    implementation("io.ktor:ktor-client-gson:1.3.2")
+    implementation("io.ktor:ktor-server-netty:1.3.2")
+    implementation("io.ktor:ktor-jackson:1.3.2")
 
-    testImplementation("io.ktor:ktor-server-tests:1.3.1")
-    testImplementation("io.ktor:ktor-server-test-host:1.3.1")
+    testImplementation("io.ktor:ktor-server-tests:1.3.2")
+    testImplementation("io.ktor:ktor-server-test-host:1.3.2")
 }
 
 application {
