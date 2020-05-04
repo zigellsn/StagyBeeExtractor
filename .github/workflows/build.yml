@@ -26,7 +26,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v1
         with:
-          name: StagyBeeExtractor
+          name: StagyBeeExtractor Distributions
           path: build/distributions
       - name: Create Release
         id: create_release
@@ -38,13 +38,49 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
+      - name: Build Release Info
+        id: build_release_info
+        run: |
+          echo ::set-output name=version::${TAG_REF_NAME##*/v}
+        env:
+          TAG_REF_NAME: ${{ github.ref }}
       - name: Upload Release Asset
-        id: upload-release-asset 
+        id: upload-release-asset-tar
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: build/libs/StagyBeeExtractor.jar
-          asset_name: StagyBeeExtractor.jar
-          asset_content_type: application/java-archive
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/distributions/StagyBeeExtractor-${{steps.build_release_info.outputs.version}}.tar
+          asset_name: StagyBeeExtractor-${{steps.build_release_info.outputs.version}}.tar
+          asset_content_type: application/x-tar
+      - name: Upload Release Asset
+        id: upload-release-asset-zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/distributions/StagyBeeExtractor-${{steps.build_release_info.outputs.version}}.zip
+          asset_name: StagyBeeExtractor-${{steps.build_release_info.outputs.version}}.zip
+          asset_content_type: application/zip
+      - name: Upload Release Asset
+        id: upload-release-asset-shadow-tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/distributions/StagyBeeExtractor-shadow-${{steps.build_release_info.outputs.version}}.tar
+          asset_name: StagyBeeExtractor-shadow-${{steps.build_release_info.outputs.version}}.tar
+          asset_content_type: application/x-tar
+      - name: Upload Release Asset
+        id: upload-release-asset-shadow-zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/distributions/StagyBeeExtractor-shadow-${{steps.build_release_info.outputs.version}}.zip
+          asset_name: StagyBeeExtractor-shadow-${{steps.build_release_info.outputs.version}}.zip
+          asset_content_type: application/zip
