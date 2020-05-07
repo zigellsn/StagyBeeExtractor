@@ -28,6 +28,12 @@ jobs:
         with:
           name: StagyBeeExtractor Distributions
           path: build/distributions
+      - name: Build Release Info
+        id: build_release_info
+        run: |
+          echo ::set-output name=version::${TAG_REF_NAME##*/v}
+        env:
+          TAG_REF_NAME: ${{ github.ref }}
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -35,15 +41,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: Release ${{steps.build_release_info.outputs.version}}
           draft: false
           prerelease: false
-      - name: Build Release Info
-        id: build_release_info
-        run: |
-          echo ::set-output name=version::${TAG_REF_NAME##*/v}
-        env:
-          TAG_REF_NAME: ${{ github.ref }}
       - name: Upload Release Asset
         id: upload-release-asset-tar
         uses: actions/upload-release-asset@v1
