@@ -1,10 +1,10 @@
 name: Java CI
 
 on:
-    push:
+  push:
     # Sequence of patterns matched against refs/tags
-      tags:
-        - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   build:
@@ -41,7 +41,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{steps.build_release_info.outputs.version}}
+          release_name: Release version ${{steps.build_release_info.outputs.version}}
           draft: false
           prerelease: false
       - name: Upload Release Asset
