@@ -16,8 +16,6 @@
 
 package com.ze.stagybee.extractor
 
-import io.ktor.http.cio.websocket.CloseReason
-
 data class Name(
     val id: Int, val familyName: String, val givenName: String, var requestToSpeak: Boolean = false,
     var speaking: Boolean = false, val listenerType: Int = 3

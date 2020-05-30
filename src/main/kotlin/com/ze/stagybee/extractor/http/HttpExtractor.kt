@@ -35,8 +35,6 @@ import io.ktor.http.cio.websocket.readText
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.util.KtorExperimentalAPI
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
@@ -68,9 +66,7 @@ open class HttpExtractor(
     override suspend fun getListenersSnapshot(): Names = Names(names)
 
     @ExperimentalCoroutinesApi
-    @FlowPreview
     @KtorExperimentalAPI
-    @InternalCoroutinesApi
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         client.ws(
             method = HttpMethod.Get,
@@ -84,6 +80,8 @@ open class HttpExtractor(
                         is Frame.Text -> {
                             processMessages(frame.readText())
                             block(Names(names))
+                        }
+                        else -> {
                         }
                     }
                 }

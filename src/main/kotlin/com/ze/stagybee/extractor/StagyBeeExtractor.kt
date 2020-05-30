@@ -16,6 +16,7 @@
 
 package com.ze.stagybee.extractor
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.databind.exc.MismatchedInputException
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -56,8 +57,11 @@ import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.*
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.math.BigInteger
 import java.net.ConnectException
@@ -128,8 +132,6 @@ class Proxy : CliktCommand() {
     private val proxyUrl: String? by option(help = "Proxy")
     private val serverPort: Int by option(help = "Port").int().default(8080)
 
-    @InternalCoroutinesApi
-    @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
     override fun run() {
         val env = applicationEngineEnvironment {
@@ -162,9 +164,6 @@ class Proxy : CliktCommand() {
 
 fun main(args: Array<String>) = Proxy().main(args)
 
-@InternalCoroutinesApi
-@KtorExperimentalAPI
-@ExperimentalCoroutinesApi
 fun Application.main() {
     install(DefaultHeaders)
     install(CallLogging)
@@ -308,9 +307,6 @@ fun Application.main() {
     }
 }
 
-@InternalCoroutinesApi
-@KtorExperimentalAPI
-@ExperimentalCoroutinesApi
 suspend fun startListener(extractor: ExtractorSession, id: String) {
     extractor.extractor.login()
     applicationEngineEnvironment {
@@ -326,13 +322,14 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
     triggerStatus(id, false, extractor)
 }
 
-@InternalCoroutinesApi
+inline fun <reified T> ObjectMapper.writeValue(value: T): String = writeValueAsString(value)
+
 private suspend fun triggerNames(id: String, it: Any) {
     try {
         webhooks.trigger(id) { url ->
             webhooks.post(
                 url,
-                TextContent(json.writeValueAsString(it), contentType = ContentType.Application.Json),
+                TextContent(json.writeValue(it), contentType = ContentType.Application.Json),
                 listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
             ).execute()
         }.collect { res ->
@@ -347,13 +344,12 @@ private suspend fun triggerNames(id: String, it: Any) {
     }
 }
 
-@InternalCoroutinesApi
 private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     try {
         webhooks.post(
             url,
             TextContent(
-                json.writeValueAsString(
+                json.writeValue(
                     extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
                         emptyList()
                     )
@@ -372,14 +368,13 @@ private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     }
 }
 
-@InternalCoroutinesApi
 private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
     try {
         webhooks.trigger(id) { url ->
             webhooks.post(
                 url,
                 TextContent(
-                    json.writeValueAsString(
+                    json.writeValue(
                         Status(
                             status,
                             extractor.since,
@@ -406,7 +401,6 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
     }
 }
 
-@InternalCoroutinesApi
 private suspend fun stopExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
     val session = extractor.listeners[sessionId]
@@ -417,7 +411,6 @@ private suspend fun stopExtractor(sessionId: SessionId) {
     }
 }
 
-@InternalCoroutinesApi
 private suspend fun terminateExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
     val keys = extractors.filterValues { it == extractor }.keys

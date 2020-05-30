@@ -19,7 +19,6 @@ package com.ze.stagybee.extractor.simulation
 import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.delay
@@ -34,7 +33,6 @@ class SimulationExtractor : Extractor {
     override suspend fun login() {
     }
 
-    @ExperimentalCoroutinesApi
     @InternalCoroutinesApi
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         names().collect {
