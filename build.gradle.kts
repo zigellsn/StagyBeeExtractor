@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Simon Zigelli
+ * Copyright 2019-2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
 plugins {
-    kotlin("jvm") version "1.3.72"
-    id("com.github.johnrengelman.shadow") version "5.2.0"
+    kotlin("jvm") version "1.4.10"
+    kotlin("plugin.serialization") version "1.4.10"
+    id("com.github.johnrengelman.shadow") version "6.1.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.2"
+version = "1.0.3"
 
 repositories {
     jcenter()
@@ -33,17 +34,18 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("com.github.zigellsn:WebhookK:1.0.0")
+    implementation("com.github.zigellsn:WebhookK:1.0.1")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("com.github.ajalt:clikt:2.6.0")
-    implementation("io.ktor:ktor-client:1.3.2")
-    implementation("io.ktor:ktor-client-cio:1.3.2")
-    implementation("io.ktor:ktor-client-gson:1.3.2")
-    implementation("io.ktor:ktor-server-netty:1.3.2")
-    implementation("io.ktor:ktor-jackson:1.3.2")
+    implementation("com.github.ajalt.clikt:clikt:3.0.1")
+    implementation("io.ktor:ktor-client:1.4.1")
+    implementation("io.ktor:ktor-client-cio:1.4.1")
+    implementation("io.ktor:ktor-serialization:1.4.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.0")
+    implementation("io.ktor:ktor-server-netty:1.4.1")
 
-    testImplementation("io.ktor:ktor-server-tests:1.3.2")
-    testImplementation("io.ktor:ktor-server-test-host:1.3.2")
+    testImplementation("junit:junit:4.13.1")
+    testImplementation("io.ktor:ktor-server-tests:1.4.1")
+    testImplementation("io.ktor:ktor-server-test-host:1.4.1")
 }
 
 application {
@@ -52,14 +54,14 @@ application {
 
 tasks {
     compileKotlin {
-        kotlinOptions.jvmTarget = "1.8"
+        kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
     }
     compileTestKotlin {
-        kotlinOptions.jvmTarget = "1.8"
+        kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
     }
 }
 
-tasks.withType<ShadowJar>() {
+tasks.withType<ShadowJar> {
     archiveBaseName.set("StagyBeeExtractor")
     archiveClassifier.set("")
     archiveVersion.set("")

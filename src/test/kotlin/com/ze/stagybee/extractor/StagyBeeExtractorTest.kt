@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Simon Zigelli
+ * Copyright 2019-2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,52 +21,51 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.handleRequest
+import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.InternalCoroutinesApi
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 
 class StagyBeeExtractorTest {
 
-    @InternalCoroutinesApi
     @Test
     @KtorExperimentalAPI
-    @ExperimentalCoroutinesApi
     fun testMeta() = withTestApplication({ main() }) {
-        with(handleRequest(HttpMethod.Get, "/api/meta/")) {
+        with(handleRequest(HttpMethod.Get, "/api/meta")) {
             val content = File("meta.json").readText()
             assertEquals(HttpStatusCode.OK, response.status())
             assertEquals(content, response.content)
         }
     }
 
-    @InternalCoroutinesApi
     @Test
     @KtorExperimentalAPI
-    @ExperimentalCoroutinesApi
     fun testSubscribeEmptyBody() = withTestApplication({ main() }) {
-        with(handleRequest(HttpMethod.Post, "/api/subscribe/") {
+        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
         }) {
             assertEquals(HttpStatusCode.BadRequest, response.status())
         }
     }
 
-    @InternalCoroutinesApi
     @Test
     @KtorExperimentalAPI
-    @ExperimentalCoroutinesApi
     fun testSubscribe() = withTestApplication({ main() }) {
-        with(handleRequest(HttpMethod.Post, "/api/subscribe/") {
+        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-            // setBody(Subscribe())
+            setBody(
+                """{
+                  "congregation": "Congregation",
+                  "username": "username",
+                  "password": "password",
+                  "url": "http://localhost/reveiver"
+                }"""
+            )
         }) {
-            assertEquals(HttpStatusCode.BadRequest, response.status())
+            assertEquals(HttpStatusCode.OK, response.status())
             // assertEquals(content, response.content)
         }
     }
-
 }

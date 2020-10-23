@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Simon Zigelli
+ * Copyright 2019-2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,18 @@
 
 package com.ze.stagybee.extractor
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.SerializationFeature
-import com.fasterxml.jackson.databind.exc.MismatchedInputException
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
 import com.github.ajalt.clikt.parameters.types.int
 import com.github.zigellsn.webhookk.WebhookK
-import com.github.zigellsn.webhookk.add
-import com.ze.stagybee.extractor.http.HttpExtractor
-import com.ze.stagybee.extractor.simulation.SimulationExtractor
+import com.ze.stagybee.extractor.routes.meta
+import com.ze.stagybee.extractor.routes.status
+import com.ze.stagybee.extractor.routes.subscribe
+import com.ze.stagybee.extractor.routes.unsubscribe
 import io.ktor.application.Application
-import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.ClientEngineClosedException
 import io.ktor.client.engine.ProxyBuilder
 import io.ktor.client.engine.ProxyConfig
 import io.ktor.client.engine.cio.CIO
@@ -40,92 +35,17 @@ import io.ktor.client.engine.http
 import io.ktor.features.CallLogging
 import io.ktor.features.ContentNegotiation
 import io.ktor.features.DefaultHeaders
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.Url
-import io.ktor.http.content.TextContent
-import io.ktor.jackson.jackson
-import io.ktor.request.receive
-import io.ktor.response.respond
-import io.ktor.response.respondFile
-import io.ktor.routing.delete
-import io.ktor.routing.get
-import io.ktor.routing.post
+import io.ktor.routing.route
 import io.ktor.routing.routing
+import io.ktor.serialization.*
 import io.ktor.server.engine.applicationEngineEnvironment
 import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
-import java.io.File
-import java.math.BigInteger
-import java.net.ConnectException
-import java.security.MessageDigest
-import java.text.DateFormat
-import java.time.LocalDateTime
-import java.util.*
-
-const val xStagyBeeExtractorEvent = "X-STAGYBEE-EXTRACTOR-EVENT"
-const val xStagyBeeExtractorAction = "X-STAGYBEE-EXTRACTOR-ACTION"
-const val eventListeners = "listeners"
-const val eventStatus = "status"
-const val eventError = "error"
-const val actionSubscribe = "subscribe"
-const val actionUnsubscribe = "unsubscribe"
-const val actionStatus = "status"
-const val actionMeta = "meta"
-
-const val THREE_HOURS = 10_800_000L
-const val QUARTER_HOUR = 900_000L
-
-typealias CongregationId = String
-typealias SessionId = String
-
-data class Subscribe(
-    val url: String,
-    val id: CongregationId?,
-    val congregation: String?,
-    val username: String?,
-    val password: String?,
-    val timeout: Long?
-)
-
-data class Success(
-    val success: Boolean,
-    val message: String? = null,
-    val sessionId: String? = null
-)
-
-data class Status(
-    val running: Boolean = false,
-    val since: LocalDateTime? = null,
-    val remaining: Long? = null,
-    val timeout: Long? = null,
-    val serverTime: LocalDateTime = LocalDateTime.now()
-)
-
-data class ExtractorSession(
-    val extractor: Extractor,
-    val timeoutSpan: Long
-) {
-    private val timeoutTime = System.currentTimeMillis() + timeoutSpan
-    val since: LocalDateTime = LocalDateTime.now()
-    val remaining
-        get() = if (job != null) timeoutTime - System.currentTimeMillis() else timeoutSpan
-    var job: Job? = null
-    val listeners: MutableMap<SessionId, Url> = mutableMapOf()
-}
-
-typealias ExtractorSessions = MutableMap<CongregationId, ExtractorSession>
+import java.security.Security
 
 lateinit var webhooks: WebhookK
-val extractors: ExtractorSessions = mutableMapOf()
-val json = jacksonObjectMapper()
 
 class Proxy : CliktCommand() {
 
@@ -134,9 +54,11 @@ class Proxy : CliktCommand() {
 
     @KtorExperimentalAPI
     override fun run() {
+        System.setProperty("io.ktor.random.secure.random.provider", "DRBG")
+        Security.setProperty("securerandom.drbg.config", "HMAC_DRBG,SHA-512,256,pr_and_reseed")
         val env = applicationEngineEnvironment {
             module {
-                main()
+                main(proxyUrl)
             }
             // Test API
             connector {
@@ -149,14 +71,6 @@ class Proxy : CliktCommand() {
                 port = serverPort
             }
         }
-        webhooks = WebhookK(HttpClient(CIO) {
-            engine {
-                proxy = if (!proxyUrl.isNullOrEmpty())
-                    ProxyBuilder.http(proxyUrl!!)
-                else
-                    ProxyConfig.NO_PROXY
-            }
-        })
 
         embeddedServer(Netty, env).start(true)
     }
@@ -164,342 +78,29 @@ class Proxy : CliktCommand() {
 
 fun main(args: Array<String>) = Proxy().main(args)
 
-fun Application.main() {
+@KtorExperimentalAPI
+fun Application.main(proxyUrl: String? = null) {
+
+    webhooks = WebhookK(HttpClient(CIO) {
+        engine {
+            proxy = if (!proxyUrl.isNullOrEmpty())
+                ProxyBuilder.http(proxyUrl)
+            else
+                ProxyConfig.NO_PROXY
+        }
+    })
+
     install(DefaultHeaders)
     install(CallLogging)
     install(ContentNegotiation) {
-        jackson {
-            enable(SerializationFeature.INDENT_OUTPUT)
-            dateFormat = DateFormat.getDateInstance()
-        }
+        json()
     }
     routing {
-        post("/api/subscribe/") {
-            call.response.headers.append(
-                xStagyBeeExtractorAction,
-                actionSubscribe
-            )
-
-            val subscribeRequest = try {
-                call.receive<Subscribe>()
-            } catch (e: MismatchedInputException) {
-                call.response.status(HttpStatusCode.BadRequest)
-                call.respond(Success(false, "Empty request body"))
-                return@post
-            }
-
-            if (subscribeRequest.url.isEmpty()) {
-                call.response.status(HttpStatusCode.BadRequest)
-                call.respond(Success(false, "URL must not be empty"))
-                return@post
-            }
-
-            val url = try {
-                Url(subscribeRequest.url)
-            } catch (e: IllegalArgumentException) {
-                call.respond(
-                    HttpStatusCode.BadRequest,
-                    Success(false, e.toString())
-                )
-                return@post
-            }
-
-            val congregationId = createCongregationId(subscribeRequest)
-            val sessionId = createSessionId(congregationId, url)
-            if (!extractors.containsKey(congregationId)) {
-                val timeout = createTimeout(subscribeRequest)
-                try {
-                    extractors[congregationId] =
-                        createExtractor(
-                            call.request.local.port,
-                            congregationId,
-                            subscribeRequest,
-                            timeout
-                        ).also {
-                            it.listeners[sessionId] = url
-                        }
-                    applicationEngineEnvironment {
-                        log.trace("Connecting session $sessionId")
-                    }
-                } catch (err: Exception) {
-                    call.response.headers.append(
-                        xStagyBeeExtractorEvent,
-                        eventError
-                    )
-                    call.respond(
-                        HttpStatusCode.InternalServerError,
-                        Success(false, err.toString())
-                    )
-                    return@post
-                } finally {
-                    extractors[congregationId]?.job = GlobalScope.launch {
-                        try {
-                            withTimeout(
-                                extractors[congregationId]?.timeoutSpan ?: throw AssertionError("Internal error")
-                            ) {
-                                startListener(
-                                    extractors[congregationId]
-                                        ?: throw AssertionError("Set to null by another thread"), congregationId
-                                )
-                            }
-                        } catch (e: Exception) {
-                            applicationEngineEnvironment {
-                                log.trace(e.toString())
-                            }
-                            terminateExtractor(sessionId)
-                        } finally {
-                            terminateExtractor(sessionId)
-                        }
-                    }
-                }
-            } else {
-                if (extractors[congregationId]?.job?.isActive == true)
-                    triggerSnapshot(congregationId, url)
-            }
-
-            webhooks.topics.add(congregationId, url)
-            call.respond(Success(true, sessionId = sessionId))
-        }
-        delete("/api/unsubscribe/{sessionId}/") {
-            val sessionId = call.parameters["sessionId"] ?: throw AssertionError("Internal error")
-            call.response.headers.append(
-                xStagyBeeExtractorAction,
-                actionUnsubscribe
-            )
-
-            if (!extractors.containsSessionId(sessionId)) {
-                call.respond(Success(false, "Unknown session id"))
-                return@delete
-            }
-
-            stopExtractor(sessionId)
-            call.respond(Success(true))
-        }
-        get("/api/status/{sessionId}/") {
-            call.response.headers.append(
-                xStagyBeeExtractorAction,
-                actionStatus
-            )
-            val sessionId = call.parameters["sessionId"] ?: throw AssertionError("")
-            if (!extractors.containsSessionId(sessionId)) {
-                call.respond(Status(running = false))
-                return@get
-            }
-            val extractor = extractors.getBySessionId(sessionId) ?: return@get
-            call.respond(
-                Status(
-                    true,
-                    extractor.since,
-                    extractor.remaining,
-                    extractor.timeoutSpan,
-                    LocalDateTime.now()
-                )
-            )
-
-        }
-        get("/api/meta/") {
-            call.response.headers.append(
-                xStagyBeeExtractorAction,
-                actionMeta
-            )
-            call.respondFile(File("meta.json"))
+        route("/api") {
+            subscribe()
+            unsubscribe()
+            status()
+            meta()
         }
     }
-}
-
-suspend fun startListener(extractor: ExtractorSession, id: String) {
-    extractor.extractor.login()
-    applicationEngineEnvironment {
-        log.info("Running ID ${id}...")
-    }
-    triggerStatus(id, true, extractor)
-    extractor.extractor.getListeners {
-        triggerNames(id, it)
-    }
-    applicationEngineEnvironment {
-        log.info("Stopping ID ${id}...")
-    }
-    triggerStatus(id, false, extractor)
-}
-
-inline fun <reified T> ObjectMapper.writeValue(value: T): String = writeValueAsString(value)
-
-private suspend fun triggerNames(id: String, it: Any) {
-    try {
-        webhooks.trigger(id) { url ->
-            webhooks.post(
-                url,
-                TextContent(json.writeValue(it), contentType = ContentType.Application.Json),
-                listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
-            ).execute()
-        }.collect { res ->
-            applicationEngineEnvironment {
-                log.trace("Names: $res")
-            }
-        }
-    } catch (e: ConnectException) {
-        applicationEngineEnvironment {
-            log.trace(e.toString())
-        }
-    }
-}
-
-private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
-    try {
-        webhooks.post(
-            url,
-            TextContent(
-                json.writeValue(
-                    extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
-                        emptyList()
-                    )
-                ), contentType = ContentType.Application.Json
-            ),
-            listOf(
-                xStagyBeeExtractorEvent to listOf(
-                    eventListeners
-                )
-            )
-        )
-    } catch (e: ConnectException) {
-        applicationEngineEnvironment {
-            log.trace(e.toString())
-        }
-    }
-}
-
-private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
-    try {
-        webhooks.trigger(id) { url ->
-            webhooks.post(
-                url,
-                TextContent(
-                    json.writeValue(
-                        Status(
-                            status,
-                            extractor.since,
-                            extractor.remaining,
-                            extractor.timeoutSpan
-                        )
-                    ), contentType = ContentType.Application.Json
-                ),
-                listOf(
-                    xStagyBeeExtractorEvent to listOf(
-                        eventStatus
-                    )
-                )
-            ).execute()
-        }.collect { res ->
-            applicationEngineEnvironment {
-                log.trace("Status: $res")
-            }
-        }
-    } catch (e: ConnectException) {
-        applicationEngineEnvironment {
-            log.trace(e.toString())
-        }
-    }
-}
-
-private suspend fun stopExtractor(sessionId: SessionId) {
-    val extractor = extractors.getBySessionId(sessionId) ?: return
-    val session = extractor.listeners[sessionId]
-    val congregationId = extractors.filterValues { it == extractor }.keys.first()
-    webhooks.topics[congregationId]?.remove(session)
-    if (webhooks.topics[congregationId]?.count() == 0) {
-        terminateExtractor(sessionId)
-    }
-}
-
-private suspend fun terminateExtractor(sessionId: SessionId) {
-    val extractor = extractors.getBySessionId(sessionId) ?: return
-    val keys = extractors.filterValues { it == extractor }.keys
-    if (keys.isEmpty())
-        return
-    val congregationId = keys.first()
-    triggerStatus(congregationId, false, extractor)
-    webhooks.topics.remove(congregationId)
-    extractor.extractor.stopListener()
-    try {
-        extractor.job?.cancel()
-    } catch (e: ClientEngineClosedException) {
-        applicationEngineEnvironment {
-            log.trace(e.toString())
-        }
-    }
-    extractors.remove(congregationId)
-
-    applicationEngineEnvironment {
-        log.info("Stopped ID ${congregationId}...")
-    }
-}
-
-private fun createExtractor(
-    port: Int,
-    congregationId: CongregationId,
-    subscribe: Subscribe,
-    timeout: Long
-): ExtractorSession =
-    if (port == 8080) {
-        ExtractorSession(
-            HttpExtractor(
-                congregationId,
-                subscribe.congregation,
-                subscribe.username,
-                subscribe.password
-            ),
-            timeout
-        )
-    } else {
-        ExtractorSession(SimulationExtractor(), timeout)
-    }
-
-private fun createTimeout(subscribeRequest: Subscribe) =
-    if (subscribeRequest.timeout == null)
-        THREE_HOURS
-    else {
-        if (subscribeRequest.timeout < QUARTER_HOUR) {
-            QUARTER_HOUR
-        }
-        subscribeRequest.timeout
-    }
-
-private fun createSessionId(congregationId: CongregationId, url: Url): SessionId =
-    when {
-        !extractors.containsKey(congregationId) -> {
-            UUID.randomUUID().toString()
-        }
-        extractors[congregationId]?.listeners?.containsValue(url) != true -> {
-            UUID.randomUUID().toString()
-        }
-        else -> {
-            extractors[congregationId]?.listeners?.filterValues { it == url }?.keys?.first()
-                ?: throw AssertionError("Internal error")
-        }
-    }
-
-private fun createCongregationId(subscribeRequest: Subscribe) =
-    if (subscribeRequest.id.isNullOrEmpty() || subscribeRequest.id.length > 12) {
-        val md: MessageDigest = MessageDigest.getInstance("SHA")
-        BigInteger(
-            1,
-            md.digest("${subscribeRequest.congregation}:${subscribeRequest.username}:${subscribeRequest.password}".toByteArray())
-        ).toString(16)
-    } else {
-        subscribeRequest.id
-    }
-
-private fun ExtractorSessions.containsSessionId(sessionId: SessionId): Boolean =
-    this.filter { extractor ->
-        extractor.value.listeners.contains(sessionId)
-    }.isNotEmpty()
-
-private fun ExtractorSessions.getBySessionId(sessionId: SessionId): ExtractorSession? {
-    val collection = this.filter { extractor ->
-        extractor.value.listeners.contains(sessionId)
-    }.values
-    return if (collection.isNotEmpty())
-        collection.first()
-    else
-        null
 }

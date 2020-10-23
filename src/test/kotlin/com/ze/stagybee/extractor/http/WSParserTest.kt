@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Simon Zigelli
+ * Copyright 2019-2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,6 @@ internal class WSParserTest {
         )
         assertNotNull(action)
         assert(action.data is WSParser.Data.AddRow)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -42,7 +41,6 @@ internal class WSParserTest {
         )
         assertNotNull(action)
         assert(action.data is WSParser.Data.DelRow)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -51,7 +49,6 @@ internal class WSParserTest {
         )
         assertNotNull(action)
         assert(action.data is WSParser.Data.Speech)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -60,7 +57,6 @@ internal class WSParserTest {
         )
         assertNotNull(action)
         assert(action.data is WSParser.Data.Speech)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -69,7 +65,6 @@ internal class WSParserTest {
         )
         assertNotNull(action)
         assert(action.data is WSParser.Data.Speech)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -77,7 +72,6 @@ internal class WSParserTest {
         """.trimIndent()
         )
         assertNull(action)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -85,7 +79,6 @@ internal class WSParserTest {
         """.trimIndent()
         )
         assertNull(action)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -93,7 +86,6 @@ internal class WSParserTest {
         """.trimIndent()
         )
         assertNull(action)
-        println(action.toString())
 
         action = cut.parseMessage(
             """
@@ -101,6 +93,5 @@ internal class WSParserTest {
         """.trimIndent()
         )
         assertNull(action)
-        println(action.toString())
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Simon Zigelli
+ * Copyright 2019-2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,25 +19,20 @@ package com.ze.stagybee.extractor.http
 import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.features.cookies.AcceptAllCookiesStorage
-import io.ktor.client.features.cookies.HttpCookies
-import io.ktor.client.features.websocket.WebSockets
-import io.ktor.client.features.websocket.ws
-import io.ktor.client.request.get
-import io.ktor.client.request.headers
-import io.ktor.client.request.post
-import io.ktor.client.request.url
-import io.ktor.http.HttpMethod
-import io.ktor.http.cio.websocket.Frame
-import io.ktor.http.cio.websocket.readText
-import io.ktor.server.engine.applicationEngineEnvironment
-import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.features.cookies.*
+import io.ktor.client.features.websocket.*
+import io.ktor.client.request.*
+import io.ktor.http.*
+import io.ktor.http.cio.websocket.*
+import io.ktor.server.engine.*
+import io.ktor.util.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.isActive
 
 open class HttpExtractor(
     private val id: String? = "",
@@ -54,18 +49,19 @@ open class HttpExtractor(
         install(WebSockets)
         expectSuccess = false
     }
+    // private lateinit var ws: DefaultClientWebSocketSession
     private val parser = WSParser()
     private val names = mutableListOf<Name>()
 
     @KtorExperimentalAPI
     override suspend fun stopListener() {
         client.get<String>(urlLogout)
-        client.close()
+        if (client.isActive)
+            client.close()
     }
 
     override suspend fun getListenersSnapshot(): Names = Names(names)
 
-    @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         client.ws(
@@ -75,15 +71,9 @@ open class HttpExtractor(
             path = webSocketPath
         ) {
             try {
-                incoming.consumeAsFlow().collect { frame ->
-                    when (frame) {
-                        is Frame.Text -> {
-                            processMessages(frame.readText())
-                            block(Names(names))
-                        }
-                        else -> {
-                        }
-                    }
+                incoming.consumeAsFlow().filterIsInstance<Frame.Text>().collect { frame ->
+                    processMessages(frame.readText())
+                    block(Names(names))
                 }
             } catch (e: ClosedReceiveChannelException) {
                 print(closeReason.await())
@@ -131,7 +121,7 @@ open class HttpExtractor(
                     })
             }
             is WSParser.Data.DelRow -> {
-                val row = names.find { it.id == action.data.id } ?: return
+                val row = names.find { it.id == (action.data as WSParser.Data.DelRow).id } ?: return
                 names.remove(row)
             }
             is WSParser.Data.Speech -> {

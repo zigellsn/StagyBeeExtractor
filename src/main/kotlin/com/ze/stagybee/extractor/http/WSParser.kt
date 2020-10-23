@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 Simon Zigelli
+ * Copyright 2019-2020 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,51 +16,86 @@
 
 package com.ze.stagybee.extractor.http
 
-
-import com.fasterxml.jackson.annotation.JsonSubTypes
-import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.annotation.JsonTypeName
-import com.fasterxml.jackson.databind.exc.MismatchedInputException
-import com.fasterxml.jackson.module.kotlin.MissingKotlinParameterException
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.Json
 
 internal class WSParser {
 
-    private val mapper = jacksonObjectMapper()
+    @Serializable
+    sealed class Data {
+        abstract val id: Int
 
-    sealed class Data(open val id: Int) {
-        @JsonTypeName("addrow")
+        @Serializable
+        @SerialName(addRow)
         data class AddRow(
-            val mutestatus: Boolean, val speechrequest: Boolean, val name: String,
-            val listener: Int, val connected: String, val sn: String, val utc_connected: String,
-            val gn: String, val login: String, val type: Int, override val id: Int
-        ) : Data(id)
+            @Serializable(with = IntAsBooleanSerializer::class) val mutestatus: Boolean,
+            @Serializable(with = IntAsBooleanSerializer::class) val speechrequest: Boolean,
+            val name: String,
+            val listener: Int,
+            val connected: String,
+            val sn: String,
+            val utc_connected: String,
+            val gn: String,
+            val login: String,
+            val type: Int,
+            override val id: Int
+        ) : Data()
 
-        data class DelRow(val listener: Int, override val id: Int) : Data(id)
-        data class Speech(val mutestatus: Boolean, val speechrequest: Boolean, override val id: Int) : Data(id)
+        @Serializable
+        @SerialName(delRow)
+        data class DelRow(val listener: Int, override val id: Int) : Data()
+
+        @Serializable
+        @SerialName(speech)
+        data class Speech(
+            @Serializable(with = IntAsBooleanSerializer::class) val mutestatus: Boolean,
+            @Serializable(with = IntAsBooleanSerializer::class) val speechrequest: Boolean,
+            override val id: Int
+        ) : Data()
     }
 
-    data class Action(val action: String,
-                      @JsonTypeInfo(property = "action", include = JsonTypeInfo.As.EXTERNAL_PROPERTY, use = JsonTypeInfo.Id.NAME)
-                      @JsonSubTypes(
-                          JsonSubTypes.Type(value = Data.AddRow::class, name = addRow),
-                          JsonSubTypes.Type(value = Data.DelRow::class, name = delRow),
-                          JsonSubTypes.Type(value = Data.Speech::class, name = unmute),
-                          JsonSubTypes.Type(value = Data.Speech::class, name = newSpeech),
-                          JsonSubTypes.Type(value = Data.Speech::class, name = delSpeech)
-                      )
-                      val data: Data
+    @Serializable
+    data class Action(
+        val action: String,
+        val data: Data
     )
 
+    object IntAsBooleanSerializer : KSerializer<Boolean> {
+        override val descriptor: SerialDescriptor =
+            PrimitiveSerialDescriptor("Date", PrimitiveKind.STRING)
+
+        override fun serialize(encoder: Encoder, value: Boolean) =
+            encoder.encodeInt(if (value) 1 else 0)
+
+        override fun deserialize(decoder: Decoder): Boolean =
+            decoder.decodeInt() == 1
+    }
+
     fun parseMessage(message: String): Action? {
-        return try {
-            mapper.readValue(message)
-        } catch (e: MismatchedInputException) {
-            null
-        } catch (e: MissingKotlinParameterException) {
-            null
+        val module = Json {
+            classDiscriminator = "classType"
         }
+        val a = message.indexOf("{", 1)
+        val type = when {
+            message.contains(addRow) -> addRow
+            message.contains(delRow) -> delRow
+            message.contains(unmute) -> speech
+            message.contains(newSpeech) -> speech
+            message.contains(delSpeech) -> speech
+            else -> return null
+        }
+        val jsonString =
+            message.subSequence(0..a)
+                .toString() + """ "classType": "$type", """ + message.subSequence(a + 1 until message.length)
+        return module.decodeFromString(jsonString)
     }
 
     companion object {
@@ -69,5 +104,6 @@ internal class WSParser {
         const val unmute = "unmute"
         const val newSpeech = "newspeech"
         const val delSpeech = "delspeech"
+        const val speech = "speech"
     }
 }

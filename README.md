@@ -32,10 +32,12 @@
 ### Meta
 /api/meta
 
+Returns the content of meta.json
+
 ## Events
 ### Listeners
 Broadcasts the listeners to all subscribers.
 ### Status
 Broadcasts the status to all subscribers.
 ### Error
-In case of an error this event is cast.
+In case of an error the extractor casts this event.

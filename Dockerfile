@@ -1,9 +1,9 @@
-FROM gradle:6.4.1-jdk8 AS build
+FROM gradle:6.7-jdk8 AS build
 COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src
 RUN gradle build --no-daemon
 
-FROM openjdk:8-jre-slim
+FROM openjdk:13-jre-slim
 
 ENV KTOR_USER ktor
 ENV HOME /home/$KTOR_USER
