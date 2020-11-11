@@ -34,18 +34,18 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("com.github.zigellsn:WebhookK:1.0.1")
+    implementation("com.github.zigellsn:webhookk:1.0.2")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.github.ajalt.clikt:clikt:3.0.1")
-    implementation("io.ktor:ktor-client:1.4.1")
-    implementation("io.ktor:ktor-client-cio:1.4.1")
-    implementation("io.ktor:ktor-serialization:1.4.1")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.0")
-    implementation("io.ktor:ktor-server-netty:1.4.1")
+    implementation("io.ktor:ktor-client:1.4.2")
+    implementation("io.ktor:ktor-client-cio:1.4.2")
+    implementation("io.ktor:ktor-serialization:1.4.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1")
+    implementation("io.ktor:ktor-server-netty:1.4.2")
 
     testImplementation("junit:junit:4.13.1")
-    testImplementation("io.ktor:ktor-server-tests:1.4.1")
-    testImplementation("io.ktor:ktor-server-test-host:1.4.1")
+    testImplementation("io.ktor:ktor-server-tests:1.4.2")
+    testImplementation("io.ktor:ktor-server-test-host:1.4.2")
 }
 
 application {
