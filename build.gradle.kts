@@ -16,15 +16,18 @@
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
+val kotlinVersion by extra ("1.4.21")
+val ktorVersion by extra ("1.5.0")
+
 plugins {
-    kotlin("jvm") version "1.4.10"
-    kotlin("plugin.serialization") version "1.4.10"
+    kotlin("jvm") version "1.4.21"
+    kotlin("plugin.serialization") version "1.4.21"
     id("com.github.johnrengelman.shadow") version "6.1.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.3"
+version = "1.0.4"
 
 repositories {
     jcenter()
@@ -33,23 +36,23 @@ repositories {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
-    implementation("com.github.zigellsn:webhookk:1.0.2")
+    implementation(kotlin("stdlib", kotlinVersion))
+    implementation("com.github.zigellsn:webhookk:1.0.4")
     implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("com.github.ajalt.clikt:clikt:3.0.1")
-    implementation("io.ktor:ktor-client:1.4.2")
-    implementation("io.ktor:ktor-client-cio:1.4.2")
-    implementation("io.ktor:ktor-serialization:1.4.2")
+    implementation("com.github.ajalt.clikt:clikt:3.1.0")
+    implementation("io.ktor:ktor-client:${ktorVersion}")
+    implementation("io.ktor:ktor-client-cio:${ktorVersion}")
+    implementation("io.ktor:ktor-serialization:${ktorVersion}")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.0.1")
-    implementation("io.ktor:ktor-server-netty:1.4.2")
+    implementation("io.ktor:ktor-server-netty:${ktorVersion}")
 
     testImplementation("junit:junit:4.13.1")
-    testImplementation("io.ktor:ktor-server-tests:1.4.2")
-    testImplementation("io.ktor:ktor-server-test-host:1.4.2")
+    testImplementation("io.ktor:ktor-server-tests:${ktorVersion}")
+    testImplementation("io.ktor:ktor-server-test-host:${ktorVersion}")
 }
 
 application {
-    mainClassName = "com.ze.stagybee.extractor.StagyBeeExtractorKt"
+    mainClass.set("com.ze.stagybee.extractor.StagyBeeExtractorKt")
 }
 
 tasks {
