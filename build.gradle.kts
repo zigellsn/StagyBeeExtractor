@@ -53,6 +53,7 @@ dependencies {
 
 application {
     mainClass.set("com.ze.stagybee.extractor.StagyBeeExtractorKt")
+    mainClassName = "com.ze.stagybee.extractor.StagyBeeExtractorKt"
 }
 
 tasks {
