@@ -27,7 +27,6 @@ import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.http.cio.websocket.*
 import io.ktor.server.engine.*
-import io.ktor.util.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
@@ -41,7 +40,6 @@ open class HttpExtractor(
     private val password: String? = ""
 ) : Extractor {
 
-    @KtorExperimentalAPI
     private val client = HttpClient(CIO) {
         install(HttpCookies) {
             storage = AcceptAllCookiesStorage()
@@ -53,7 +51,6 @@ open class HttpExtractor(
     private val parser = WSParser()
     private val names = mutableListOf<Name>()
 
-    @KtorExperimentalAPI
     override suspend fun stopListener() {
         client.get<String>(urlLogout)
         if (client.isActive)
@@ -62,7 +59,6 @@ open class HttpExtractor(
 
     override suspend fun getListenersSnapshot(): Names = Names(names)
 
-    @KtorExperimentalAPI
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         client.ws(
             method = HttpMethod.Get,
@@ -86,7 +82,6 @@ open class HttpExtractor(
         }
     }
 
-    @KtorExperimentalAPI
     override suspend fun login() {
         if (this.id != null && this.id.length == 12) {
             client.get<String>("$urlAutoLogin${this.id}")

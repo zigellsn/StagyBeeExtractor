@@ -16,18 +16,18 @@
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-val kotlinVersion by extra ("1.4.21")
-val ktorVersion by extra ("1.5.0")
+val kotlinVersion by extra ("1.4.30")
+val ktorVersion by extra ("1.5.1")
 
 plugins {
-    kotlin("jvm") version "1.4.21"
-    kotlin("plugin.serialization") version "1.4.21"
+    kotlin("jvm") version "1.4.30"
+    kotlin("plugin.serialization") version "1.4.30"
     id("com.github.johnrengelman.shadow") version "6.1.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.5"
+version = "1.0.6"
 
 repositories {
     jcenter()
@@ -37,7 +37,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib", kotlinVersion))
-    implementation("com.github.zigellsn:webhookk:1.0.4")
+    implementation("com.github.zigellsn:webhookk:1.0.5")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.github.ajalt.clikt:clikt:3.1.0")
     implementation("io.ktor:ktor-client:${ktorVersion}")
