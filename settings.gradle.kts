@@ -19,6 +19,6 @@ rootProject.name = "StagyBeeExtractor"
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        jcenter()
+        mavenCentral()
     }
 }
