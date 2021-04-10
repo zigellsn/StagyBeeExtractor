@@ -19,4 +19,5 @@ COPY --from=build /home/gradle/src/build/libs/*.jar ./
 EXPOSE 8080
 EXPOSE 9090
 
-ENTRYPOINT [ "java", "-server", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:InitialRAMFraction=2", "-XX:MinRAMFraction=2", "-XX:MaxRAMFraction=2", "-XX:+UseG1GC", "-XX:MaxGCPauseMillis=100", "-XX:+UseStringDeduplication", "-jar", "StagyBeeExtractor-shadow-${EXTRACTOR_VERSION}.jar" ]
+COPY ./scripts/entrypoint.sh $HOME/
+ENTRYPOINT [ "/home/ktor/entrypoint.sh" ]
