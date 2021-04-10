@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 Simon Zigelli
+ * Copyright 2019-2021 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,11 +29,7 @@ import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.*
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -58,6 +54,7 @@ const val QUARTER_HOUR = 900_000L
 
 val extractors: ExtractorSessions = mutableMapOf()
 
+@ExperimentalCoroutinesApi
 fun Route.subscribe() {
     post("/subscribe") {
         call.response.headers.append(
@@ -132,6 +129,7 @@ fun Route.subscribe() {
     }
 }
 
+@ExperimentalCoroutinesApi
 fun Route.unsubscribe() {
     delete("/unsubscribe/{sessionId}") {
         val sessionId = call.parameters["sessionId"] ?: error("Internal error")
@@ -186,6 +184,7 @@ fun Route.meta() {
     }
 }
 
+@ExperimentalCoroutinesApi
 suspend fun startListener(extractor: ExtractorSession, id: String) {
     extractor.extractor.login()
     applicationEngineEnvironment {
@@ -201,6 +200,7 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
     triggerStatus(id, false, extractor)
 }
 
+@ExperimentalCoroutinesApi
 private suspend fun triggerNames(id: String, it: Names) {
     try {
         webhooks.trigger(id) { url ->
@@ -212,10 +212,6 @@ private suspend fun triggerNames(id: String, it: Names) {
                 ),
                 listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
             ).execute()
-        }.collect { res ->
-            applicationEngineEnvironment {
-                log.trace("Names($id): $res")
-            }
         }
     } catch (e: ConnectException) {
         applicationEngineEnvironment {
@@ -248,6 +244,7 @@ private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     }
 }
 
+@ExperimentalCoroutinesApi
 private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
     try {
         webhooks.trigger(id) { url ->
@@ -268,10 +265,6 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
                     )
                 )
             ).execute()
-        }.collect { res ->
-            applicationEngineEnvironment {
-                log.trace("Status($id): $res")
-            }
         }
     } catch (e: ConnectException) {
         applicationEngineEnvironment {
@@ -280,6 +273,7 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
     }
 }
 
+@ExperimentalCoroutinesApi
 private suspend fun stopExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
     val session = extractor.listeners[sessionId]
@@ -290,6 +284,7 @@ private suspend fun stopExtractor(sessionId: SessionId) {
     }
 }
 
+@ExperimentalCoroutinesApi
 private suspend fun terminateExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
     val keys = extractors.filterValues { it == extractor }.keys

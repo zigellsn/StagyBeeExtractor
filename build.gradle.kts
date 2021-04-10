@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 Simon Zigelli
+ * Copyright 2019-2021 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,27 @@
 
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 
-val kotlinVersion by extra ("1.4.31")
-val ktorVersion by extra ("1.5.2")
+val kotlinVersion by extra("1.4.32")
+val ktorVersion by extra("1.5.3")
 
 plugins {
-    kotlin("jvm") version "1.4.31"
-    kotlin("plugin.serialization") version "1.4.31"
+    kotlin("jvm") version "1.4.32"
+    kotlin("plugin.serialization") version "1.4.32"
     id("com.github.johnrengelman.shadow") version "6.1.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.7"
+version = "1.0.8"
 
 repositories {
     mavenCentral()
-    maven(url="https://jitpack.io")
+    maven(url = "https://jitpack.io")
 }
 
 dependencies {
     implementation(kotlin("stdlib", kotlinVersion))
-    implementation("com.github.zigellsn:webhookk:1.0.6")
+    implementation("com.github.zigellsn:webhookk:1.1.0-beta02")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("com.github.ajalt.clikt:clikt:3.1.0")
     implementation("io.ktor:ktor-client:${ktorVersion}")
@@ -65,7 +65,7 @@ tasks {
 }
 
 tasks.withType<ShadowJar> {
-    archiveBaseName.set("StagyBeeExtractor")
+    archiveBaseName.set("${project.name}-shadow")
     archiveClassifier.set("")
-    archiveVersion.set("")
+    archiveVersion.set(project.version as String)
 }

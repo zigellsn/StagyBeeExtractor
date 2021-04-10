@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 Simon Zigelli
+ * Copyright 2019-2021 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ import io.ktor.server.engine.connector
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.KtorExperimentalAPI
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.collect
 import java.security.Security
 
 lateinit var webhooks: WebhookK
@@ -52,6 +54,8 @@ class Proxy : CliktCommand() {
     private val proxyUrl: String? by option(help = "Proxy")
     private val serverPort: Int by option(help = "Port").int().default(8080)
 
+    @FlowPreview
+    @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
     override fun run() {
         System.setProperty("io.ktor.random.secure.random.provider", "DRBG")
@@ -78,8 +82,10 @@ class Proxy : CliktCommand() {
 
 fun main(args: Array<String>) = Proxy().main(args)
 
+@ExperimentalCoroutinesApi
+@FlowPreview
 @KtorExperimentalAPI
-fun Application.main(proxyUrl: String? = null) {
+fun Application.main(proxyUrl: String? = null, dispatcher: CoroutineDispatcher = Dispatchers.Default) {
 
     webhooks = WebhookK(HttpClient(CIO) {
         engine {
@@ -89,6 +95,14 @@ fun Application.main(proxyUrl: String? = null) {
                 ProxyConfig.NO_PROXY
         }
     })
+
+    webhookScope.launch(dispatcher) {
+        webhooks.responses().collect { (id, res) ->
+            applicationEngineEnvironment {
+                log.trace("Status($id): $res")
+            }
+        }
+    }
 
     install(DefaultHeaders)
     install(CallLogging)
@@ -104,3 +118,6 @@ fun Application.main(proxyUrl: String? = null) {
         }
     }
 }
+
+private val webhookJob = SupervisorJob()
+private val webhookScope = CoroutineScope(webhookJob)

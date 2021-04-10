@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2020 Simon Zigelli
+ * Copyright 2019-2021 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,18 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 import io.ktor.util.KtorExperimentalAPI
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 
+@FlowPreview
+@ExperimentalCoroutinesApi
+@KtorExperimentalAPI
 class StagyBeeExtractorTest {
 
     @Test
-    @KtorExperimentalAPI
     fun testMeta() = withTestApplication({ main() }) {
         with(handleRequest(HttpMethod.Get, "/api/meta")) {
             val content = File("meta.json").readText()
@@ -41,7 +45,6 @@ class StagyBeeExtractorTest {
     }
 
     @Test
-    @KtorExperimentalAPI
     fun testSubscribeEmptyBody() = withTestApplication({ main() }) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
@@ -51,7 +54,6 @@ class StagyBeeExtractorTest {
     }
 
     @Test
-    @KtorExperimentalAPI
     fun testSubscribe() = withTestApplication({ main() }) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
