@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 val kotlinVersion by extra("1.5.0")
 val ktorVersion by extra("1.5.4")
 
 plugins {
     kotlin("jvm") version "1.5.0"
     kotlin("plugin.serialization") version "1.5.0"
-    id("com.github.johnrengelman.shadow") version "7.0.0"
     application
 }
 
@@ -52,7 +49,6 @@ dependencies {
 
 application {
     mainClass.set("com.ze.stagybee.extractor.StagyBeeExtractorKt")
-    mainClassName = "com.ze.stagybee.extractor.StagyBeeExtractorKt"
 }
 
 tasks {
@@ -62,10 +58,4 @@ tasks {
     compileTestKotlin {
         kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
     }
-}
-
-tasks.withType<ShadowJar> {
-    archiveBaseName.set("${project.name}-shadow")
-    archiveClassifier.set("")
-    archiveVersion.set(project.version as String)
 }

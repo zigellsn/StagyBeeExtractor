@@ -7,11 +7,11 @@ RUN useradd --create-home $KTOR_USER && \
     mkdir $HOME/app && \
     chown -R $KTOR_USER $HOME/app
 
-WORKDIR $HOME/app
 USER $KTOR_USER
 
-COPY ./build/lib/*.jar ./
+COPY ./build/install/StagyBeeExtractor/ $HOME/app/
 EXPOSE 8443
 
-COPY ./scripts/entrypoint.sh $HOME/
-ENTRYPOINT [ "/home/ktor/entrypoint.sh" ]
+WORKDIR $HOME/app/bin
+
+ENTRYPOINT [ "./StagyBeeExtractor" ]
