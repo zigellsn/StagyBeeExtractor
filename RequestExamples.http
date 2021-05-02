@@ -6,7 +6,7 @@ Content-Type: application/json
   "congregation": "Congregation",
   "username": "username",
   "password": "password",
-  "url": "http://localhost/reveiver"
+  "url": "https://localhost/reveiver"
 }
 
 ### Unsubscribe

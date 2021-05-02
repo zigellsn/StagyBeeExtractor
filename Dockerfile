@@ -5,7 +5,7 @@ RUN gradle build --no-daemon
 
 FROM openjdk:13-jre-slim
 
-ENV EXTRACTOR_VERSION 1.0.8
+ENV EXTRACTOR_VERSION 1.0.9
 ENV KTOR_USER ktor
 ENV HOME /home/$KTOR_USER
 RUN useradd --create-home $KTOR_USER && \
@@ -16,8 +16,7 @@ WORKDIR $HOME/app
 USER $KTOR_USER
 
 COPY --from=build /home/gradle/src/build/libs/*.jar ./
-EXPOSE 8080
-EXPOSE 9090
+EXPOSE 8443
 
 COPY ./scripts/entrypoint.sh $HOME/
 ENTRYPOINT [ "/home/ktor/entrypoint.sh" ]

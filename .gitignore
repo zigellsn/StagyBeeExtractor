@@ -135,5 +135,6 @@ gradle-app.setting
 
 ### Custom ###
 connect.http
+*.jks
 
 # End of https://www.gitignore.io/api/gradle,kotlin,intellij

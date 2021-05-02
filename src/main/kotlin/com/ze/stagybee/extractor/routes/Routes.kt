@@ -23,13 +23,19 @@ import com.ze.stagybee.extractor.simulation.SimulationExtractor
 import com.ze.stagybee.extractor.webhooks
 import io.ktor.application.*
 import io.ktor.client.engine.*
+import io.ktor.content.*
 import io.ktor.http.*
-import io.ktor.http.content.*
 import io.ktor.request.*
 import io.ktor.response.*
 import io.ktor.routing.*
 import io.ktor.server.engine.*
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope.coroutineContext
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -38,6 +44,7 @@ import java.net.ConnectException
 import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.util.*
+import kotlin.coroutines.coroutineContext
 
 const val xStagyBeeExtractorEvent = "X-STAGYBEE-EXTRACTOR-EVENT"
 const val xStagyBeeExtractorAction = "X-STAGYBEE-EXTRACTOR-ACTION"
@@ -54,8 +61,7 @@ const val QUARTER_HOUR = 900_000L
 
 val extractors: ExtractorSessions = mutableMapOf()
 
-@ExperimentalCoroutinesApi
-fun Route.subscribe() {
+fun Route.subscribe(env: String?, scope: CoroutineScope, dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     post("/subscribe") {
         call.response.headers.append(
             xStagyBeeExtractorAction,
@@ -90,7 +96,7 @@ fun Route.subscribe() {
             val timeout = createTimeout(subscribeRequest)
             extractors.putIfAbsent(congregationId,
                 createExtractor(
-                    call.request.local.port,
+                    env,
                     congregationId,
                     subscribeRequest,
                     timeout
@@ -100,7 +106,7 @@ fun Route.subscribe() {
             applicationEngineEnvironment {
                 log.trace("Connecting session $sessionId")
             }
-            extractors[congregationId]?.job = GlobalScope.launch {
+            extractors[congregationId]?.job = scope.launch(dispatcher) {
                 try {
                     withTimeout(
                         extractors[congregationId]?.timeoutSpan ?: error("Internal error")
@@ -129,7 +135,6 @@ fun Route.subscribe() {
     }
 }
 
-@ExperimentalCoroutinesApi
 fun Route.unsubscribe() {
     delete("/unsubscribe/{sessionId}") {
         val sessionId = call.parameters["sessionId"] ?: error("Internal error")
@@ -139,7 +144,7 @@ fun Route.unsubscribe() {
         )
 
         if (!extractors.containsSessionId(sessionId)) {
-            call.respond(Success(false).apply { message = "Unknown session id" })
+            call.respond(HttpStatusCode.NotFound, Success(false).apply { message = "Unknown session id" })
             return@delete
         }
 
@@ -156,7 +161,7 @@ fun Route.status() {
         )
         val sessionId = call.parameters["sessionId"] ?: error("Session ID must not be empty")
         if (!extractors.containsSessionId(sessionId)) {
-            call.respond(Status(running = false))
+            call.respond(HttpStatusCode.NotFound, Status(running = false))
             return@get
         }
         val extractor = extractors.getBySessionId(sessionId) ?: return@get
@@ -184,7 +189,6 @@ fun Route.meta() {
     }
 }
 
-@ExperimentalCoroutinesApi
 suspend fun startListener(extractor: ExtractorSession, id: String) {
     extractor.extractor.login()
     applicationEngineEnvironment {
@@ -200,7 +204,6 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
     triggerStatus(id, false, extractor)
 }
 
-@ExperimentalCoroutinesApi
 private suspend fun triggerNames(id: String, it: Names) {
     try {
         webhooks.trigger(id) { url ->
@@ -244,7 +247,6 @@ private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     }
 }
 
-@ExperimentalCoroutinesApi
 private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
     try {
         webhooks.trigger(id) { url ->
@@ -266,14 +268,13 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
                 )
             ).execute()
         }
-    } catch (e: ConnectException) {
+    } catch (e: java.net.ConnectException) {
         applicationEngineEnvironment {
             log.trace(e.toString())
         }
     }
 }
 
-@ExperimentalCoroutinesApi
 private suspend fun stopExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
     val session = extractor.listeners[sessionId]
@@ -284,7 +285,6 @@ private suspend fun stopExtractor(sessionId: SessionId) {
     }
 }
 
-@ExperimentalCoroutinesApi
 private suspend fun terminateExtractor(sessionId: SessionId) {
     val extractor = extractors.getBySessionId(sessionId) ?: return
     val keys = extractors.filterValues { it == extractor }.keys
@@ -311,12 +311,12 @@ private suspend fun terminateExtractor(sessionId: SessionId) {
 }
 
 private fun createExtractor(
-    port: Int,
+    env: String?,
     congregationId: CongregationId,
     subscribe: Subscribe,
     timeout: Long
 ): ExtractorSession =
-    if (port == 8080) {
+    if (env.isNullOrEmpty()) {
         ExtractorSession(
             HttpExtractor(
                 congregationId,

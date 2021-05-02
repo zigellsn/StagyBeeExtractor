@@ -16,22 +16,20 @@
 
 package com.ze.stagybee.extractor
 
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpMethod
-import io.ktor.http.HttpStatusCode
-import io.ktor.server.testing.handleRequest
-import io.ktor.server.testing.setBody
-import io.ktor.server.testing.withTestApplication
-import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import com.ze.stagybee.extractor.routes.Status
+import com.ze.stagybee.extractor.routes.Success
+import io.ktor.config.*
+import io.ktor.http.*
+import io.ktor.server.testing.*
+import io.ktor.util.*
 import kotlinx.coroutines.FlowPreview
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 
 @FlowPreview
-@ExperimentalCoroutinesApi
 @KtorExperimentalAPI
 class StagyBeeExtractorTest {
 
@@ -54,7 +52,12 @@ class StagyBeeExtractorTest {
     }
 
     @Test
-    fun testSubscribe() = withTestApplication({ main() }) {
+    fun testSubscribe() = withTestApplication({
+        (environment.config as MapApplicationConfig).apply {
+            put("ktor.environment", "dev")
+        }
+        main()
+    }) {
         with(handleRequest(HttpMethod.Post, "/api/subscribe") {
             addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
@@ -62,12 +65,108 @@ class StagyBeeExtractorTest {
                   "congregation": "Congregation",
                   "username": "username",
                   "password": "password",
-                  "url": "http://localhost/reveiver"
+                  "url": "https://localhost/receiver"
                 }"""
             )
         }) {
             assertEquals(HttpStatusCode.OK, response.status())
-            // assertEquals(content, response.content)
+            val message: Success = Json.decodeFromString(response.content ?: "")
+            with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${message.sessionId}")) {
+                assertEquals(HttpStatusCode.OK, response.status())
+            }
+        }
+    }
+
+    @Test
+    fun testSubscribeMultiple() = withTestApplication({
+        (environment.config as MapApplicationConfig).apply {
+            put("ktor.environment", "dev")
+        }
+        main()
+    }) {
+        var sessionId0: String
+        var sessionId1: String
+        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(
+                """{
+                  "congregation": "Congregation",
+                  "username": "username",
+                  "password": "password",
+                  "url": "https://localhost/receiver"
+                }"""
+            )
+        }) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            val message: Success = Json.decodeFromString(response.content ?: "")
+            sessionId0 = message.sessionId
+        }
+
+        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(
+                """{
+                  "congregation": "Congregation2",
+                  "username": "username",
+                  "password": "password",
+                  "url": "https://localhost/receiver2"
+                }"""
+            )
+        }) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            val message: Success = Json.decodeFromString(response.content ?: "")
+            sessionId1 = message.sessionId
+        }
+
+        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${sessionId1}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+        }
+
+        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/abc")) {
+            assertEquals(HttpStatusCode.NotFound, response.status())
+        }
+
+        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${sessionId0}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+        }
+    }
+
+    @Test
+    fun testStatus() = withTestApplication({
+        (environment.config as MapApplicationConfig).apply {
+            put("ktor.environment", "dev")
+        }
+        main()
+    }) {
+        var sessionId0: String
+        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
+            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody(
+                """{
+                  "congregation": "Congregation",
+                  "username": "username",
+                  "password": "password",
+                  "url": "https://localhost/receiver"
+                }"""
+            )
+        }) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            val message: Success = Json.decodeFromString(response.content ?: "")
+            assertEquals(true, message.success)
+            sessionId0 = message.sessionId
+        }
+        with(handleRequest(HttpMethod.Get, "/api/status/${sessionId0}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+            val message: Status = Json.decodeFromString(response.content ?: "")
+            assertEquals(true, message.running)
+        }
+        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${sessionId0}")) {
+            assertEquals(HttpStatusCode.OK, response.status())
+        }
+        with(handleRequest(HttpMethod.Get, "/api/status/${sessionId0}")) {
+            assertEquals(HttpStatusCode.NotFound, response.status())
+            val message: Status = Json.decodeFromString(response.content ?: "")
+            assertEquals(false, message.running)
         }
     }
 }
