@@ -24,7 +24,7 @@ plugins {
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.9"
+version = "1.0.10"
 
 repositories {
     mavenCentral()
@@ -33,14 +33,14 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
-    implementation("com.github.zigellsn:webhookk:1.1.0-beta03")
+    implementation("com.github.zigellsn:webhookk:1.1.0-rc01")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.ktor:ktor-client:${ktorVersion}")
     implementation("io.ktor:ktor-client-cio:${ktorVersion}")
     implementation("io.ktor:ktor-serialization:${ktorVersion}")
     implementation("io.ktor:ktor-network-tls-certificates:${ktorVersion}")
     implementation("io.ktor:ktor-server-netty:${ktorVersion}")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.2.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.2.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("io.ktor:ktor-server-tests:${ktorVersion}")
