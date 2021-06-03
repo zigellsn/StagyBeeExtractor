@@ -21,7 +21,6 @@ import com.ze.stagybee.extractor.routes.Success
 import io.ktor.config.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
-import io.ktor.util.*
 import kotlinx.coroutines.FlowPreview
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -30,7 +29,6 @@ import java.io.File
 import kotlin.test.assertEquals
 
 @FlowPreview
-@KtorExperimentalAPI
 class StagyBeeExtractorTest {
 
     @Test

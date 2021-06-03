@@ -31,7 +31,6 @@ import io.ktor.routing.*
 import io.ktor.serialization.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import io.ktor.util.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -56,7 +55,6 @@ fun main(args: Array<String>) {
 }
 
 @FlowPreview
-@KtorExperimentalAPI
 fun Application.main(dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     val proxyUrl = environment.config.propertyOrNull("ktor.proxy")?.getString()
     val env = environment.config.propertyOrNull("ktor.environment")?.getString()

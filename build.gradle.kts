@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-val kotlinVersion by extra("1.5.0")
-val ktorVersion by extra("1.5.4")
+val kotlinVersion by extra("1.5.10")
+val ktorVersion by extra("1.6.0")
 
 plugins {
-    kotlin("jvm") version "1.5.0"
-    kotlin("plugin.serialization") version "1.5.0"
+    kotlin("jvm") version "1.5.10"
+    kotlin("plugin.serialization") version "1.5.10"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.10"
+version = "1.0.11"
 
 repositories {
     mavenCentral()
@@ -33,7 +33,7 @@ repositories {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
-    implementation("com.github.zigellsn:webhookk:1.1.0-rc01")
+    implementation("com.github.zigellsn:webhookk:1.1.0-rc02")
     implementation("ch.qos.logback:logback-classic:1.2.3")
     implementation("io.ktor:ktor-client:${ktorVersion}")
     implementation("io.ktor:ktor-client-cio:${ktorVersion}")
