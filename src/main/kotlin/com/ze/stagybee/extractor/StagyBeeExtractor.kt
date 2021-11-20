@@ -34,7 +34,6 @@ import io.ktor.server.netty.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -54,16 +53,14 @@ fun main(args: Array<String>) {
     embeddedServer(Netty, commandLineEnvironment(args)).start(true)
 }
 
-@FlowPreview
+
 fun Application.main(dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     val proxyUrl = environment.config.propertyOrNull("ktor.proxy")?.getString()
     val env = environment.config.propertyOrNull("ktor.environment")?.getString()
     webhooks = WebhookK(HttpClient(CIO) {
         engine {
-            proxy = if (!proxyUrl.isNullOrEmpty())
-                ProxyBuilder.http(proxyUrl)
-            else
-                ProxyConfig.NO_PROXY
+            if (!proxyUrl.isNullOrEmpty())
+                proxy = ProxyBuilder.http(proxyUrl)
         }
     })
 

@@ -17,10 +17,9 @@
 package com.ze.stagybee.extractor.simulation
 
 import com.ze.stagybee.extractor.Extractor
-import com.ze.stagybee.extractor.Names
 import com.ze.stagybee.extractor.Name
+import com.ze.stagybee.extractor.Names
 import kotlinx.coroutines.InternalCoroutinesApi
-import kotlinx.coroutines.NonCancellable.isActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
@@ -29,15 +28,16 @@ import kotlin.random.nextInt
 
 class SimulationExtractor : Extractor {
 
-    private val validChars: List<Char> = ('a'..'z') + ('A'..'Z')
+    private val validCharsUpper: List<Char> = ('A'..'Z').toList()
+    private val validCharsLower: List<Char> = ('a'..'z').toList()
     override suspend fun login() {
     }
 
-    @InternalCoroutinesApi
+
+    @OptIn(InternalCoroutinesApi::class)
     override suspend fun getListeners(block: suspend (Names) -> Unit) {
         names().collect {
-            if (isActive)
-                block(it)
+            block(it)
         }
     }
 
@@ -64,15 +64,14 @@ class SimulationExtractor : Extractor {
         return Names(names)
     }
 
-    @InternalCoroutinesApi
+    @OptIn(InternalCoroutinesApi::class)
     private suspend fun names() = flow {
-        while (isActive) {
+        while (true)
             emit(getListenersSnapshot())
-        }
     }
 
     private fun randomString(length: Int) =
-        (1..length).map { Random.nextInt(0, validChars.size) }
-            .map(validChars::get)
+        validCharsUpper.random() +
+        (1 until length).map { validCharsLower.random() }
             .joinToString("")
 }

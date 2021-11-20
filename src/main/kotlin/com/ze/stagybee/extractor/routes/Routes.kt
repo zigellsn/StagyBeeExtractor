@@ -32,10 +32,10 @@ import io.ktor.server.engine.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope.coroutineContext
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -44,7 +44,6 @@ import java.net.ConnectException
 import java.security.MessageDigest
 import java.time.LocalDateTime
 import java.util.*
-import kotlin.coroutines.coroutineContext
 
 const val xStagyBeeExtractorEvent = "X-STAGYBEE-EXTRACTOR-EVENT"
 const val xStagyBeeExtractorAction = "X-STAGYBEE-EXTRACTOR-ACTION"
@@ -60,6 +59,7 @@ const val THREE_HOURS = 10_800_000L
 const val QUARTER_HOUR = 900_000L
 
 val extractors: ExtractorSessions = mutableMapOf()
+val json = Json { encodeDefaults = true }
 
 fun Route.subscribe(env: String?, scope: CoroutineScope, dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     post("/subscribe") {
@@ -175,7 +175,6 @@ fun Route.status() {
                 serverTime = LocalDateTime.now()
             }
         )
-
     }
 }
 
@@ -204,13 +203,14 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
     triggerStatus(id, false, extractor)
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 private suspend fun triggerNames(id: String, it: Names) {
     try {
         webhooks.trigger(id) { url ->
             webhooks.post(
                 url,
                 TextContent(
-                    Json { encodeDefaults = true }.encodeToString(it),
+                    json.encodeToString(it),
                     contentType = ContentType.Application.Json
                 ),
                 listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
@@ -223,12 +223,13 @@ private suspend fun triggerNames(id: String, it: Names) {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     try {
         webhooks.post(
             url,
             TextContent(
-                Json { encodeDefaults = true }.encodeToString(
+                json.encodeToString(
                     extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
                         emptyList()
                     )
@@ -247,13 +248,14 @@ private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     }
 }
 
+@OptIn(ExperimentalSerializationApi::class)
 private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
     try {
         webhooks.trigger(id) { url ->
             webhooks.post(
                 url,
                 TextContent(
-                    Json { encodeDefaults = true }.encodeToString(
+                    json.encodeToString(
                         Status(status).apply {
                             since = extractor.since
                             remaining = extractor.remaining
@@ -268,7 +270,7 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
                 )
             ).execute()
         }
-    } catch (e: java.net.ConnectException) {
+    } catch (e: ConnectException) {
         applicationEngineEnvironment {
             log.trace(e.toString())
         }
@@ -280,7 +282,7 @@ private suspend fun stopExtractor(sessionId: SessionId) {
     val session = extractor.listeners[sessionId]
     val congregationId = extractors.filterValues { it == extractor }.keys.first()
     webhooks.topics[congregationId]?.remove(session)
-    if (webhooks.topics[congregationId]?.count() == 0) {
+    if (webhooks.topics[congregationId]?.isEmpty() != false) {
         terminateExtractor(sessionId)
     }
 }

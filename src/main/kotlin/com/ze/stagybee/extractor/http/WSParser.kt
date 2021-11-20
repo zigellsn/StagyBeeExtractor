@@ -16,6 +16,7 @@
 
 package com.ze.stagybee.extractor.http
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -79,6 +80,7 @@ internal class WSParser {
             decoder.decodeInt() == 1
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     fun parseMessage(message: String): Action? {
         val module = Json {
             classDiscriminator = "classType"

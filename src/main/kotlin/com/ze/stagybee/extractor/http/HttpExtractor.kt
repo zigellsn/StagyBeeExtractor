@@ -47,6 +47,7 @@ open class HttpExtractor(
         install(WebSockets)
         expectSuccess = false
     }
+
     // private lateinit var ws: DefaultClientWebSocketSession
     private val parser = WSParser()
     private val names = mutableListOf<Name>()
@@ -88,12 +89,11 @@ open class HttpExtractor(
         } else {
             val myBody =
                 "loginstatus=auth&congregation=${this.congregation}&congregation_id=&username=${this.username}&password=${this.password}"
-            client.post<String> {
-                url(sUrl)
-                body = myBody
+            client.post<String>(sUrl) {
                 headers {
                     append("Content-Type", "application/x-www-form-urlencoded")
                 }
+                body = myBody
             }
         }
     }
@@ -124,6 +124,7 @@ open class HttpExtractor(
                 names[names.indexOf(names.find { it.id == action.data.id })].requestToSpeak = row.speechrequest
                 names[names.indexOf(names.find { it.id == action.data.id })].speaking = row.mutestatus
             }
+            null -> {}
         }
     }
 

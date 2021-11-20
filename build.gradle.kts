@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-val kotlinVersion by extra("1.5.10")
-val ktorVersion by extra("1.6.0")
-
 plugins {
-    kotlin("jvm") version "1.5.10"
-    kotlin("plugin.serialization") version "1.5.10"
+    kotlin("jvm") version "1.6.0"
+    kotlin("plugin.serialization") version "1.6.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.11"
+version = "1.0.12"
 
 repositories {
     mavenCentral()
@@ -32,19 +29,20 @@ repositories {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect:${kotlinVersion}")
-    implementation("com.github.zigellsn:webhookk:1.1.0-rc02")
-    implementation("ch.qos.logback:logback-classic:1.2.3")
-    implementation("io.ktor:ktor-client:${ktorVersion}")
-    implementation("io.ktor:ktor-client-cio:${ktorVersion}")
-    implementation("io.ktor:ktor-serialization:${ktorVersion}")
-    implementation("io.ktor:ktor-network-tls-certificates:${ktorVersion}")
-    implementation("io.ktor:ktor-server-netty:${ktorVersion}")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.2.1")
+    implementation(libs.kotlin.reflect)
+    implementation(libs.webhookk)
+    implementation(libs.logback)
+    implementation(libs.ktor.client)
+    implementation(libs.ktor.cio)
+    implementation(libs.ktor.serialization)
+    implementation(libs.ktor.tls)
+    implementation(libs.ktor.netty)
+    implementation(libs.kotlin.serialization)
 
-    testImplementation("junit:junit:4.13.2")
-    testImplementation("io.ktor:ktor-server-tests:${ktorVersion}")
-    testImplementation("io.ktor:ktor-server-test-host:${ktorVersion}")
+    testImplementation(libs.test.junit)
+    testImplementation(libs.test.ktor.server)
+    testImplementation(libs.test.ktor.serverhost)
+    testImplementation(libs.test.kotlin)
 }
 
 application {
@@ -54,8 +52,10 @@ application {
 tasks {
     compileKotlin {
         kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
+        kotlinOptions.freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn")
     }
     compileTestKotlin {
         kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
+        kotlinOptions.freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn")
     }
 }

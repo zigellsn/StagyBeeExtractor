@@ -21,14 +21,13 @@ import com.ze.stagybee.extractor.routes.Success
 import io.ktor.config.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
-import kotlinx.coroutines.FlowPreview
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 
-@FlowPreview
 class StagyBeeExtractorTest {
 
     @Test
@@ -49,6 +48,7 @@ class StagyBeeExtractorTest {
         }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     @Test
     fun testSubscribe() = withTestApplication({
         (environment.config as MapApplicationConfig).apply {
@@ -75,6 +75,7 @@ class StagyBeeExtractorTest {
         }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     @Test
     fun testSubscribeMultiple() = withTestApplication({
         (environment.config as MapApplicationConfig).apply {
@@ -129,6 +130,7 @@ class StagyBeeExtractorTest {
         }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     @Test
     fun testStatus() = withTestApplication({
         (environment.config as MapApplicationConfig).apply {
