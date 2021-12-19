@@ -19,11 +19,15 @@ package com.ze.stagybee.extractor.http
 import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
+import com.ze.stagybee.extractor.routes.LoginRequest
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.features.*
 import io.ktor.client.features.cookies.*
+import io.ktor.client.features.json.*
 import io.ktor.client.features.websocket.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.http.cio.websocket.*
 import io.ktor.server.engine.*
@@ -40,61 +44,86 @@ open class HttpExtractor(
     private val password: String? = ""
 ) : Extractor {
 
+    class MyCookiesStorage(private val cookiesStorage: CookiesStorage) : CookiesStorage by cookiesStorage {
+        override suspend fun get(requestUrl: Url): List<Cookie> =
+            cookiesStorage.get(requestUrl).map { it.copy(encoding = CookieEncoding.RAW) }
+    }
+
     private val client = HttpClient(CIO) {
+        BrowserUserAgent()
         install(HttpCookies) {
-            storage = AcceptAllCookiesStorage()
+            storage = MyCookiesStorage(AcceptAllCookiesStorage())
         }
+        install(JsonFeature)
         install(WebSockets)
         expectSuccess = false
     }
 
-    // private lateinit var ws: DefaultClientWebSocketSession
     private val parser = WSParser()
     private val names = mutableListOf<Name>()
 
     override suspend fun stopListener() {
-        client.get<String>(urlLogout)
         if (client.isActive)
             client.close()
     }
 
     override suspend fun getListenersSnapshot(): Names = Names(names)
 
-    override suspend fun getListeners(block: suspend (Names) -> Unit) {
-        client.ws(
-            method = HttpMethod.Get,
-            host = webSocketUrl,
-            port = webSocketPort,
-            path = webSocketPath
-        ) {
-            try {
-                incoming.consumeAsFlow().filterIsInstance<Frame.Text>().collect { frame ->
-                    processMessages(frame.readText())
-                    block(Names(names))
+    override suspend fun getListeners(token: String, block: suspend (Names) -> Unit) {
+        try {
+            client.wss(
+                method = HttpMethod.Get,
+                host = webSocketUrl,
+                port = webSocketPort,
+                path = webSocketPath,
+                request = {
+                    val cookie = Cookie(
+                        encoding = CookieEncoding.RAW,
+                        name = "X-Authorization",
+                        value = token,
+                        path = "/",
+                        domain = webSocketUrl
+                    )
+                    val renderedCookie = renderCookieHeader(cookie)
+                    headers {
+                        append(HttpHeaders.Cookie, renderedCookie)
+                    }
                 }
-            } catch (e: ClosedReceiveChannelException) {
-                print(closeReason.await())
-            } catch (e: Throwable) {
-                print(closeReason.await())
-                applicationEngineEnvironment {
-                    log.trace(e.toString())
+            ) {
+                try {
+                    incoming.consumeAsFlow().filterIsInstance<Frame.Text>().collect { frame ->
+                        processMessages(frame.readText())
+                        block(Names(names))
+                    }
+                } catch (e: ClosedReceiveChannelException) {
+                    print(closeReason.await())
+                } catch (e: Throwable) {
+                    print(closeReason.await())
+                    applicationEngineEnvironment {
+                        log.trace(e.toString())
+                    }
                 }
+            }
+        } catch (e: Exception) {
+            applicationEngineEnvironment {
+                log.trace(e.toString())
             }
         }
     }
 
-    override suspend fun login() {
-        if (this.id != null && this.id.length == 12) {
-            client.get<String>("$urlAutoLogin${this.id}")
+    override suspend fun login(): HttpStatement? {
+        val myBody = if (this.id != null && this.id.length == 12) {
+            LoginRequest(key = this.id)
         } else {
-            val myBody =
-                "loginstatus=auth&congregation=${this.congregation}&congregation_id=&username=${this.username}&password=${this.password}"
-            client.post<String>(sUrl) {
-                headers {
-                    append("Content-Type", "application/x-www-form-urlencoded")
-                }
-                body = myBody
-            }
+            LoginRequest(
+                congregation = this.congregation ?: "",
+                username = this.username ?: "",
+                password = this.password ?: ""
+            )
+        }
+        return client.post<HttpStatement>(urlLogin) {
+            contentType(ContentType.Application.Json)
+            body = myBody
         }
     }
 
@@ -129,11 +158,9 @@ open class HttpExtractor(
     }
 
     companion object {
-        const val urlAutoLogin = "https://jwconf.org/stage.php?key="
-        const val sUrl = "https://jwconf.org/login.php"
-        const val urlLogout = "https://jwconf.org/index.php?logout"
+        const val urlLogin = "https://jwconf.org/api/v1.0/login"
         const val webSocketUrl = "jwconf.org"
         const val webSocketPath = "/websocket"
-        const val webSocketPort = 80
+        const val webSocketPort = 443
     }
 }

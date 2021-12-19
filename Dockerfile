@@ -1,11 +1,11 @@
-FROM gradle:7.0-jdk8 AS build
+FROM gradle:7.3.1-jdk8 AS build
 COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src
 RUN gradle installDist --no-daemon
 
 FROM openjdk:13-jre-slim
 
-ENV EXTRACTOR_VERSION 1.0.11
+ENV EXTRACTOR_VERSION 1.0.13
 ENV KTOR_USER ktor
 ENV HOME /home/$KTOR_USER
 RUN useradd --create-home $KTOR_USER && \

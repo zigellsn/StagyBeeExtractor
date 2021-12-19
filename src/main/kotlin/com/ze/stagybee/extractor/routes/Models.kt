@@ -71,6 +71,38 @@ data class ExtractorSession(
     val listeners: MutableMap<SessionId, @Serializable(with = UrlAsStringSerializer::class) Url> = mutableMapOf()
 }
 
+@Serializable
+data class LoginRequest(
+    val key: String = "",
+    val congregation: String = "",
+    val password: String = "",
+    val username: String = "",
+    val remainLoggedIn: Boolean = false
+)
+
+@Serializable
+data class LoginOption(
+    val stage: Int = 0,
+    val show_only_signaling_listeners: Int = 0,
+    val signaling_listeners_color_mode: Int = 0
+)
+
+@Serializable
+data class LoginContent(
+    val user: String,
+    val level: Int,
+    val user_id: Int,
+    val congregation_id: Int,
+    val crid: Int,
+    val congregation: String,
+    val remainLoggedIn: Boolean,
+    val token: String,
+    val user_options: List<LoginOption>
+)
+
+@Serializable
+data class LoginResponse(val result: String, val content: LoginContent)
+
 typealias ExtractorSessions = MutableMap<CongregationId, ExtractorSession>
 
 private object UrlAsStringSerializer : KSerializer<Url> {

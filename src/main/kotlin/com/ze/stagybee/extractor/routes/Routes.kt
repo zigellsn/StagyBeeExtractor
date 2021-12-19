@@ -189,12 +189,13 @@ fun Route.meta() {
 }
 
 suspend fun startListener(extractor: ExtractorSession, id: String) {
-    extractor.extractor.login()
+    val response = extractor.extractor.login()
+    val resp: LoginResponse? = response?.receive()
     applicationEngineEnvironment {
         log.info("Running ID ${id}...")
     }
     triggerStatus(id, true, extractor)
-    extractor.extractor.getListeners {
+    extractor.extractor.getListeners(resp?.content?.token ?: "") {
         triggerNames(id, it)
     }
     applicationEngineEnvironment {

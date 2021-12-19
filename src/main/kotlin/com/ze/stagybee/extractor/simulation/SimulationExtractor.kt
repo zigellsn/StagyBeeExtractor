@@ -19,6 +19,7 @@ package com.ze.stagybee.extractor.simulation
 import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
+import io.ktor.client.statement.*
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -30,12 +31,13 @@ class SimulationExtractor : Extractor {
 
     private val validCharsUpper: List<Char> = ('A'..'Z').toList()
     private val validCharsLower: List<Char> = ('a'..'z').toList()
-    override suspend fun login() {
+    override suspend fun login(): HttpStatement? {
+        return null
     }
 
 
     @OptIn(InternalCoroutinesApi::class)
-    override suspend fun getListeners(block: suspend (Names) -> Unit) {
+    override suspend fun getListeners(token: String, block: suspend (Names) -> Unit) {
         names().collect {
             block(it)
         }

@@ -15,13 +15,13 @@
  */
 
 plugins {
-    kotlin("jvm") version "1.6.0"
-    kotlin("plugin.serialization") version "1.6.0"
+    kotlin("jvm") version "1.6.10"
+    kotlin("plugin.serialization") version "1.6.10"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.12"
+version = "1.0.13"
 
 repositories {
     mavenCentral()
@@ -35,6 +35,7 @@ dependencies {
     implementation(libs.ktor.client)
     implementation(libs.ktor.cio)
     implementation(libs.ktor.serialization)
+    implementation(libs.ktor.client.serialization)
     implementation(libs.ktor.tls)
     implementation(libs.ktor.netty)
     implementation(libs.kotlin.serialization)

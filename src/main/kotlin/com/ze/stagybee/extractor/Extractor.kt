@@ -16,6 +16,7 @@
 
 package com.ze.stagybee.extractor
 
+import io.ktor.client.statement.*
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -30,8 +31,8 @@ data class Name(
 data class Names(val names: List<Name>)
 
 interface Extractor {
-    suspend fun login()
-    suspend fun getListeners(block: suspend (Names) -> Unit)
+    suspend fun login(): HttpStatement?
+    suspend fun getListeners(token: String, block: suspend (Names) -> Unit)
     suspend fun stopListener()
     suspend fun getListenersSnapshot(): Names
 }
