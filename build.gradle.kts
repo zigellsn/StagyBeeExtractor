@@ -21,7 +21,7 @@ plugins {
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.13"
+version = "1.0.14"
 
 repositories {
     mavenCentral()
