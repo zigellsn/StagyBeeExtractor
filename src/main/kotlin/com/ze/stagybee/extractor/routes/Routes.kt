@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,14 +21,16 @@ import com.ze.stagybee.extractor.Names
 import com.ze.stagybee.extractor.http.HttpExtractor
 import com.ze.stagybee.extractor.simulation.SimulationExtractor
 import com.ze.stagybee.extractor.webhooks
-import io.ktor.application.*
+import io.ktor.client.call.*
 import io.ktor.client.engine.*
+import io.ktor.client.request.*
 import io.ktor.content.*
 import io.ktor.http.*
-import io.ktor.request.*
-import io.ktor.response.*
-import io.ktor.routing.*
+import io.ktor.server.application.*
 import io.ktor.server.engine.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -190,7 +192,7 @@ fun Route.meta() {
 
 suspend fun startListener(extractor: ExtractorSession, id: String) {
     val response = extractor.extractor.login()
-    val resp: LoginResponse? = response?.receive()
+    val resp: LoginResponse? = response?.body()
     applicationEngineEnvironment {
         log.info("Running ID ${id}...")
     }
@@ -208,14 +210,14 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
 private suspend fun triggerNames(id: String, it: Names) {
     try {
         webhooks.trigger(id) { url ->
-            webhooks.post(
+            post(
                 url,
                 TextContent(
                     json.encodeToString(it),
                     contentType = ContentType.Application.Json
                 ),
                 listOf(xStagyBeeExtractorEvent to listOf(eventListeners))
-            ).execute()
+            )
         }
     } catch (e: ConnectException) {
         applicationEngineEnvironment {
@@ -224,24 +226,27 @@ private suspend fun triggerNames(id: String, it: Names) {
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class)
 private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
+    val callHeader = listOf(
+        xStagyBeeExtractorEvent to listOf(
+            eventListeners
+        )
+    )
     try {
-        webhooks.post(
-            url,
-            TextContent(
-                json.encodeToString(
-                    extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
-                        emptyList()
-                    )
-                ), contentType = ContentType.Application.Json
-            ),
-            listOf(
-                xStagyBeeExtractorEvent to listOf(
-                    eventListeners
+        webhooks.client.post(url) {
+            setBody(
+                TextContent(
+                    json.encodeToString(
+                        extractors[congregationId]?.extractor?.getListenersSnapshot() ?: Names(
+                            emptyList()
+                        )
+                    ), contentType = ContentType.Application.Json
                 )
             )
-        )
+            for (h in callHeader) {
+                headers.appendAll(h.first, h.second)
+            }
+        }
     } catch (e: ConnectException) {
         applicationEngineEnvironment {
             log.trace(e.toString())
@@ -249,11 +254,10 @@ private suspend fun triggerSnapshot(congregationId: CongregationId, url: Url) {
     }
 }
 
-@OptIn(ExperimentalSerializationApi::class)
 private suspend fun triggerStatus(id: String, status: Boolean, extractor: ExtractorSession) {
     try {
         webhooks.trigger(id) { url ->
-            webhooks.post(
+            post(
                 url,
                 TextContent(
                     json.encodeToString(
@@ -269,7 +273,7 @@ private suspend fun triggerStatus(id: String, status: Boolean, extractor: Extrac
                         eventStatus
                     )
                 )
-            ).execute()
+            )
         }
     } catch (e: ConnectException) {
         applicationEngineEnvironment {

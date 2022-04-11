@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,14 @@ package com.ze.stagybee.extractor
 
 import com.ze.stagybee.extractor.routes.Status
 import com.ze.stagybee.extractor.routes.Success
-import io.ktor.config.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.server.config.*
 import io.ktor.server.testing.*
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
@@ -31,33 +33,50 @@ import kotlin.test.assertEquals
 class StagyBeeExtractorTest {
 
     @Test
-    fun testMeta() = withTestApplication({ main() }) {
-        with(handleRequest(HttpMethod.Get, "/api/meta")) {
-            val content = File("meta.json").readText()
-            assertEquals(HttpStatusCode.OK, response.status())
-            assertEquals(content, response.content)
+    fun testMeta() = testApplication {
+        application {
+            main()
         }
+        environment {
+            config = ApplicationConfig("test_application.conf")
+        }
+        val response = client.get("/api/meta")
+        val content = File("meta.json").readText()
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(content, response.bodyAsText())
     }
 
     @Test
-    fun testSubscribeEmptyBody() = withTestApplication({ main() }) {
-        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
-            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
-        }) {
-            assertEquals(HttpStatusCode.BadRequest, response.status())
+    fun testSubscribeEmptyBody() = testApplication {
+        application {
+            main()
         }
+        environment {
+            config = ApplicationConfig("test_application.conf")
+        }
+        val client = createClient {
+            expectSuccess = false
+        }
+        val response = client.post("/api/subscribe") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+            setBody("")
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     @Test
-    fun testSubscribe() = withTestApplication({
-        (environment.config as MapApplicationConfig).apply {
-            put("ktor.environment", "dev")
+    fun testSubscribe() = testApplication {
+        application {
+            main()
         }
-        main()
-    }) {
-        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
-            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+        environment {
+            config = ApplicationConfig("test_application.conf")
+        }
+        val client = createClient {
+            expectSuccess = false
+        }
+        var response = client.post("/api/subscribe") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 """{
                   "congregation": "Congregation",
@@ -66,27 +85,31 @@ class StagyBeeExtractorTest {
                   "url": "https://localhost/receiver"
                 }"""
             )
-        }) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            val message: Success = Json.decodeFromString(response.content ?: "")
-            with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${message.sessionId}")) {
-                assertEquals(HttpStatusCode.OK, response.status())
-            }
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val message: Success = Json.decodeFromString(response.bodyAsText())
+
+        response = client.delete("/api/unsubscribe/${message.sessionId}") {
+            assertEquals(HttpStatusCode.OK, response.status)
         }
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     @Test
-    fun testSubscribeMultiple() = withTestApplication({
-        (environment.config as MapApplicationConfig).apply {
-            put("ktor.environment", "dev")
+    fun testSubscribeMultiple() = testApplication {
+        application {
+            main()
         }
-        main()
-    }) {
-        var sessionId0: String
-        var sessionId1: String
-        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
-            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+        environment {
+            // config = ApplicationConfig("test_application.conf")
+            config = MapApplicationConfig("ktor.environment" to "dev")
+        }
+        val client = createClient {
+            expectSuccess = false
+        }
+        val sessionId0: String
+        val sessionId1: String
+        var response = client.post("/api/subscribe") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 """{
                   "congregation": "Congregation",
@@ -95,14 +118,14 @@ class StagyBeeExtractorTest {
                   "url": "https://localhost/receiver"
                 }"""
             )
-        }) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            val message: Success = Json.decodeFromString(response.content ?: "")
-            sessionId0 = message.sessionId
         }
+        assertEquals(HttpStatusCode.OK, response.status)
+        var message: Success = Json.decodeFromString(response.bodyAsText())
+        sessionId0 = message.sessionId
 
-        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
-            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+        response = client.post("/api/subscribe")
+        {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 """{
                   "congregation": "Congregation2",
@@ -111,36 +134,40 @@ class StagyBeeExtractorTest {
                   "url": "https://localhost/receiver2"
                 }"""
             )
-        }) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            val message: Success = Json.decodeFromString(response.content ?: "")
-            sessionId1 = message.sessionId
         }
+        assertEquals(HttpStatusCode.OK, response.status)
+        message = Json.decodeFromString(response.bodyAsText())
+        sessionId1 = message.sessionId
 
-        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${sessionId1}")) {
-            assertEquals(HttpStatusCode.OK, response.status())
-        }
+        assertNotEquals(sessionId0, sessionId1)
 
-        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/abc")) {
-            assertEquals(HttpStatusCode.NotFound, response.status())
-        }
+        response = client.delete("/api/unsubscribe/${sessionId1}")
+        assertEquals(HttpStatusCode.OK, response.status)
 
-        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${sessionId0}")) {
-            assertEquals(HttpStatusCode.OK, response.status())
-        }
+        response = client.delete("/api/unsubscribe/abc")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+
+        response = client.delete("/api/unsubscribe/${sessionId0}")
+        assertEquals(HttpStatusCode.OK, response.status)
     }
 
-    @OptIn(ExperimentalSerializationApi::class)
     @Test
-    fun testStatus() = withTestApplication({
-        (environment.config as MapApplicationConfig).apply {
-            put("ktor.environment", "dev")
+    fun testStatus() = testApplication {
+        application {
+            main()
         }
-        main()
-    }) {
-        var sessionId0: String
-        with(handleRequest(HttpMethod.Post, "/api/subscribe") {
-            addHeader(HttpHeaders.ContentType, ContentType.Application.Json.toString())
+        environment {
+            // config = ApplicationConfig("test_application.conf")
+            config = MapApplicationConfig("ktor.environment" to "dev")
+        }
+        val client = createClient {
+            expectSuccess = false
+        }
+
+        val sessionId0: String
+
+        var response = client.post("/api/subscribe") {
+            header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 """{
                   "congregation": "Congregation",
@@ -149,24 +176,24 @@ class StagyBeeExtractorTest {
                   "url": "https://localhost/receiver"
                 }"""
             )
-        }) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            val message: Success = Json.decodeFromString(response.content ?: "")
-            assertEquals(true, message.success)
-            sessionId0 = message.sessionId
         }
-        with(handleRequest(HttpMethod.Get, "/api/status/${sessionId0}")) {
-            assertEquals(HttpStatusCode.OK, response.status())
-            val message: Status = Json.decodeFromString(response.content ?: "")
-            assertEquals(true, message.running)
-        }
-        with(handleRequest(HttpMethod.Delete, "/api/unsubscribe/${sessionId0}")) {
-            assertEquals(HttpStatusCode.OK, response.status())
-        }
-        with(handleRequest(HttpMethod.Get, "/api/status/${sessionId0}")) {
-            assertEquals(HttpStatusCode.NotFound, response.status())
-            val message: Status = Json.decodeFromString(response.content ?: "")
-            assertEquals(false, message.running)
-        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        val message: Success = Json.decodeFromString(response.bodyAsText())
+        assertEquals(true, message.success)
+        sessionId0 = message.sessionId
+        assertNotEquals("", sessionId0)
+
+        response = client.get("/api/status/${sessionId0}")
+        assertEquals(HttpStatusCode.OK, response.status)
+        var statusMessage: Status = Json.decodeFromString(response.bodyAsText())
+        assertEquals(true, statusMessage.running)
+
+        response = client.delete("/api/unsubscribe/${sessionId0}")
+        assertEquals(HttpStatusCode.OK, response.status)
+
+        response = client.get("/api/status/${sessionId0}")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        statusMessage = Json.decodeFromString(response.bodyAsText())
+        assertEquals(false, statusMessage.running)
     }
 }

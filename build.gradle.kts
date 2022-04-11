@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 
 plugins {
-    kotlin("jvm") version "1.6.10"
-    kotlin("plugin.serialization") version "1.6.10"
+    kotlin("jvm") version "1.6.20"
+    kotlin("plugin.serialization") version "1.6.20"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.14"
+version = "1.0.15"
 
 repositories {
     mavenCentral()
@@ -29,21 +29,21 @@ repositories {
 }
 
 dependencies {
-    implementation(libs.kotlin.reflect)
     implementation(libs.webhookk)
     implementation(libs.logback)
-    implementation(libs.ktor.client)
     implementation(libs.ktor.cio)
-    implementation(libs.ktor.serialization)
-    implementation(libs.ktor.client.serialization)
+    implementation(libs.ktor.serialization.kotlinx)
+    implementation(libs.ktor.client.contentnegotiation)
     implementation(libs.ktor.tls)
     implementation(libs.ktor.netty)
-    implementation(libs.kotlin.serialization)
+    implementation(libs.ktor.server.core)
+    implementation(libs.ktor.server.defaultheaders)
+    implementation(libs.ktor.server.calllogging)
+    implementation(libs.ktor.server.contentnegotiation)
 
-    testImplementation(libs.test.junit)
-    testImplementation(libs.test.ktor.server)
     testImplementation(libs.test.ktor.serverhost)
     testImplementation(libs.test.kotlin)
+    testImplementation(libs.test.kotlin.coroutine)
 }
 
 application {

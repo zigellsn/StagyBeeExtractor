@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,21 +21,22 @@ import com.ze.stagybee.extractor.routes.meta
 import com.ze.stagybee.extractor.routes.status
 import com.ze.stagybee.extractor.routes.subscribe
 import com.ze.stagybee.extractor.routes.unsubscribe
-import io.ktor.application.*
 import io.ktor.client.*
 import io.ktor.client.engine.*
 import io.ktor.client.engine.cio.*
-import io.ktor.features.*
 import io.ktor.network.tls.certificates.*
-import io.ktor.routing.*
-import io.ktor.serialization.*
+import io.ktor.serialization.kotlinx.json.*
+import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.callloging.*
+import io.ktor.server.plugins.contentnegotiation.*
+import io.ktor.server.plugins.defaultheaders.*
+import io.ktor.server.routing.*
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.io.File
 import java.security.Security
@@ -73,7 +74,8 @@ fun Application.main(dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     }
 
     install(DefaultHeaders)
-    install(CallLogging)
+    if (developmentMode)
+        install(CallLogging)
     install(ContentNegotiation) {
         json()
     }

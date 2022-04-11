@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 3.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ data class Name(
 data class Names(val names: List<Name>)
 
 interface Extractor {
-    suspend fun login(): HttpStatement?
+    suspend fun login(): HttpResponse?
     suspend fun getListeners(token: String, block: suspend (Names) -> Unit)
     suspend fun stopListener()
     suspend fun getListenersSnapshot(): Names

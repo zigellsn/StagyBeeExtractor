@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,17 +22,16 @@ import com.ze.stagybee.extractor.Names
 import com.ze.stagybee.extractor.routes.LoginRequest
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.features.*
-import io.ktor.client.features.cookies.*
-import io.ktor.client.features.json.*
-import io.ktor.client.features.websocket.*
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.cookies.*
+import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import io.ktor.http.cio.websocket.*
 import io.ktor.server.engine.*
+import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.isActive
@@ -54,7 +53,8 @@ open class HttpExtractor(
         install(HttpCookies) {
             storage = MyCookiesStorage(AcceptAllCookiesStorage())
         }
-        install(JsonFeature)
+        install(ContentNegotiation) {
+        }
         install(WebSockets)
         expectSuccess = false
     }
@@ -111,7 +111,7 @@ open class HttpExtractor(
         }
     }
 
-    override suspend fun login(): HttpStatement? {
+    override suspend fun login(): HttpResponse? {
         val myBody = if (this.id != null && this.id.length == 12) {
             LoginRequest(key = this.id)
         } else {
@@ -121,9 +121,8 @@ open class HttpExtractor(
                 password = this.password ?: ""
             )
         }
-        return client.post<HttpStatement>(urlLogin) {
-            contentType(ContentType.Application.Json)
-            body = myBody
+        return client.post(urlLogin) {
+            setBody(myBody)
         }
     }
 

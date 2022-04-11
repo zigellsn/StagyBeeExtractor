@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import com.ze.stagybee.extractor.Names
 import io.ktor.client.statement.*
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlin.random.Random
 import kotlin.random.nextInt
@@ -31,7 +30,7 @@ class SimulationExtractor : Extractor {
 
     private val validCharsUpper: List<Char> = ('A'..'Z').toList()
     private val validCharsLower: List<Char> = ('a'..'z').toList()
-    override suspend fun login(): HttpStatement? {
+    override suspend fun login(): HttpResponse? {
         return null
     }
 
@@ -74,6 +73,6 @@ class SimulationExtractor : Extractor {
 
     private fun randomString(length: Int) =
         validCharsUpper.random() +
-        (1 until length).map { validCharsLower.random() }
-            .joinToString("")
+                (1 until length).map { validCharsLower.random() }
+                    .joinToString("")
 }

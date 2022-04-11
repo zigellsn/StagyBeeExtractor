@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2021 Simon Zigelli
+ * Copyright 2019-2022 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,17 @@
 
 package com.ze.stagybee.extractor.http
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 internal class WSParserTest {
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun parseMessage() = runBlocking {
+    fun parseMessage() = runTest {
         val cut = WSParser()
         var action = cut.parseMessage(
             """
