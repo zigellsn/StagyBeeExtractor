@@ -18,6 +18,7 @@ package com.ze.stagybee.extractor
 
 import com.ze.stagybee.extractor.routes.Status
 import com.ze.stagybee.extractor.routes.Success
+import io.ktor.client.call.body
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
@@ -91,7 +92,7 @@ class StagyBeeExtractorTest {
 
         response = client.delete("/api/unsubscribe/${message.sessionId}") {
             assertEquals(HttpStatusCode.OK, response.status)
-        }
+        }.body()
     }
 
     @Test
@@ -123,8 +124,7 @@ class StagyBeeExtractorTest {
         var message: Success = Json.decodeFromString(response.bodyAsText())
         sessionId0 = message.sessionId
 
-        response = client.post("/api/subscribe")
-        {
+        response = client.post("/api/subscribe") {
             header(HttpHeaders.ContentType, ContentType.Application.Json.toString())
             setBody(
                 """{
@@ -134,7 +134,7 @@ class StagyBeeExtractorTest {
                   "url": "https://localhost/receiver2"
                 }"""
             )
-        }
+        }.body()
         assertEquals(HttpStatusCode.OK, response.status)
         message = Json.decodeFromString(response.bodyAsText())
         sessionId1 = message.sessionId

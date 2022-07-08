@@ -20,7 +20,6 @@ import com.ze.stagybee.extractor.Extractor
 import com.ze.stagybee.extractor.Name
 import com.ze.stagybee.extractor.Names
 import io.ktor.client.statement.*
-import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlin.random.Random
@@ -34,8 +33,6 @@ class SimulationExtractor : Extractor {
         return null
     }
 
-
-    @OptIn(InternalCoroutinesApi::class)
     override suspend fun getListeners(token: String, block: suspend (Names) -> Unit) {
         names().collect {
             block(it)
@@ -65,7 +62,6 @@ class SimulationExtractor : Extractor {
         return Names(names)
     }
 
-    @OptIn(InternalCoroutinesApi::class)
     private suspend fun names() = flow {
         while (true)
             emit(getListenersSnapshot())

@@ -29,6 +29,7 @@ import io.ktor.client.plugins.websocket.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.engine.*
 import io.ktor.websocket.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
@@ -54,6 +55,7 @@ open class HttpExtractor(
             storage = MyCookiesStorage(AcceptAllCookiesStorage())
         }
         install(ContentNegotiation) {
+            json()
         }
         install(WebSockets)
         expectSuccess = false
@@ -122,6 +124,7 @@ open class HttpExtractor(
             )
         }
         return client.post(urlLogin) {
+            contentType(ContentType.Application.Json)
             setBody(myBody)
         }
     }

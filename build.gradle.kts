@@ -15,13 +15,13 @@
  */
 
 plugins {
-    kotlin("jvm") version "1.6.20"
-    kotlin("plugin.serialization") version "1.6.20"
+    kotlin("jvm") version "1.7.0"
+    kotlin("plugin.serialization") version "1.7.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.15"
+version = "1.0.16"
 
 repositories {
     mavenCentral()

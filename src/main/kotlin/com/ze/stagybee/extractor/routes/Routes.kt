@@ -21,7 +21,7 @@ import com.ze.stagybee.extractor.Names
 import com.ze.stagybee.extractor.http.HttpExtractor
 import com.ze.stagybee.extractor.simulation.SimulationExtractor
 import com.ze.stagybee.extractor.webhooks
-import io.ktor.client.call.*
+import io.ktor.client.call.body
 import io.ktor.client.engine.*
 import io.ktor.client.request.*
 import io.ktor.content.*
@@ -37,7 +37,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -206,7 +205,6 @@ suspend fun startListener(extractor: ExtractorSession, id: String) {
     triggerStatus(id, false, extractor)
 }
 
-@OptIn(ExperimentalSerializationApi::class)
 private suspend fun triggerNames(id: String, it: Names) {
     try {
         webhooks.trigger(id) { url ->
