@@ -39,7 +39,7 @@ class StagyBeeExtractorTest {
             main()
         }
         environment {
-            config = ApplicationConfig("test_application.conf")
+            config = MapApplicationConfig("ktor.environment" to "dev")
         }
         val response = client.get("/api/meta")
         val content = File("meta.json").readText()
@@ -53,7 +53,7 @@ class StagyBeeExtractorTest {
             main()
         }
         environment {
-            config = ApplicationConfig("test_application.conf")
+            config = MapApplicationConfig("ktor.environment" to "dev")
         }
         val client = createClient {
             expectSuccess = false
@@ -71,7 +71,7 @@ class StagyBeeExtractorTest {
             main()
         }
         environment {
-            config = ApplicationConfig("test_application.conf")
+            config = MapApplicationConfig("ktor.environment" to "dev")
         }
         val client = createClient {
             expectSuccess = false
@@ -101,7 +101,6 @@ class StagyBeeExtractorTest {
             main()
         }
         environment {
-            // config = ApplicationConfig("test_application.conf")
             config = MapApplicationConfig("ktor.environment" to "dev")
         }
         val client = createClient {
@@ -157,7 +156,6 @@ class StagyBeeExtractorTest {
             main()
         }
         environment {
-            // config = ApplicationConfig("test_application.conf")
             config = MapApplicationConfig("ktor.environment" to "dev")
         }
         val client = createClient {

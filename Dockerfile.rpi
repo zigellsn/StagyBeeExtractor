@@ -1,6 +1,6 @@
 FROM balenalib/raspberry-pi-openjdk:8-stretch
 
-ENV EXTRACTOR_VERSION 1.0.16
+ENV EXTRACTOR_VERSION 1.0.17
 ENV KTOR_USER ktor
 ENV HOME /home/$KTOR_USER
 RUN useradd --create-home $KTOR_USER && \
