@@ -146,15 +146,18 @@ open class HttpExtractor(
                         it.listenerCount = row.listener
                     })
             }
+
             is WSParser.Data.DelRow -> {
                 val row = names.find { it.id == (action.data as WSParser.Data.DelRow).id } ?: return
                 names.remove(row)
             }
+
             is WSParser.Data.Speech -> {
                 val row = action.data as WSParser.Data.Speech
                 names[names.indexOf(names.find { it.id == action.data.id })].requestToSpeak = row.speechrequest
                 names[names.indexOf(names.find { it.id == action.data.id })].speaking = row.mutestatus
             }
+
             null -> {}
         }
     }

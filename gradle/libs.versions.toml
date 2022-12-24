@@ -1,11 +1,11 @@
 [versions]
-kotlin = "1.7.20"
+kotlin = "1.7.21"
 coroutine = "1.6.4"
-ktor = "2.1.2"
+ktor = "2.2.1"
 junit = "4.13.2"
-serialization = "1.4.0"
-webhookk = "2.0.2"
-logback = "1.4.1"
+serialization = "1.4.1"
+webhookk = "2.0.3"
+logback = "1.4.5"
 
 [libraries]
 

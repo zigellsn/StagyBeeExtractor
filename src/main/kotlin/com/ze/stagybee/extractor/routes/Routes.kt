@@ -350,9 +350,11 @@ private fun createSessionId(congregationId: CongregationId, url: Url): SessionId
         !extractors.containsKey(congregationId) -> {
             UUID.randomUUID().toString()
         }
+
         extractors[congregationId]?.listeners?.containsValue(url) != true -> {
             UUID.randomUUID().toString()
         }
+
         else -> {
             extractors[congregationId]?.listeners?.filterValues { it == url }?.keys?.first()
                 ?: error("Internal error")
