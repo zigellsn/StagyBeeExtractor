@@ -5,7 +5,7 @@ RUN gradle installDist --no-daemon
 
 FROM openjdk:13-jre-slim
 
-ENV EXTRACTOR_VERSION 1.0.17
+ENV EXTRACTOR_VERSION 1.0.19
 ENV KTOR_USER ktor
 ENV HOME /home/$KTOR_USER
 RUN useradd --create-home $KTOR_USER && \

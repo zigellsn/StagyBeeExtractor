@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2022 Simon Zigelli
+ * Copyright 2019-2023 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
  */
 
 plugins {
-    kotlin("jvm") version "1.7.21"
-    kotlin("plugin.serialization") version "1.7.21"
+    kotlin("jvm") version "1.8.0"
+    kotlin("plugin.serialization") version "1.8.0"
     application
 }
 
 group = "com.ze.stagybee.extractor"
-version = "1.0.18"
+version = "1.0.19"
 
 repositories {
     mavenCentral()
@@ -58,5 +58,13 @@ tasks {
     compileTestKotlin {
         kotlinOptions.jvmTarget = JavaVersion.VERSION_1_8.toString()
         kotlinOptions.freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn")
+    }
+    compileJava {
+        sourceCompatibility = JavaVersion.VERSION_1_8.toString()
+        targetCompatibility = JavaVersion.VERSION_1_8.toString()
+    }
+    compileTestJava {
+        sourceCompatibility = JavaVersion.VERSION_1_8.toString()
+        targetCompatibility = JavaVersion.VERSION_1_8.toString()
     }
 }

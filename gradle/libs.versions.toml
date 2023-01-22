@@ -1,10 +1,10 @@
 [versions]
-kotlin = "1.7.21"
+kotlin = "1.8.0"
 coroutine = "1.6.4"
-ktor = "2.2.1"
+ktor = "2.2.2"
 junit = "4.13.2"
 serialization = "1.4.1"
-webhookk = "2.0.3"
+webhookk = "2.0.4"
 logback = "1.4.5"
 
 [libraries]
