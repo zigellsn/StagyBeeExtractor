@@ -68,7 +68,7 @@ fun Application.main(dispatcher: CoroutineDispatcher = Dispatchers.IO) {
     webhookScope.launch(dispatcher) {
         webhooks.responses().collect { (id, res) ->
             applicationEngineEnvironment {
-                log.trace("Status($id): $res")
+                log.trace("Status({}): {}", id, res)
             }
         }
     }
