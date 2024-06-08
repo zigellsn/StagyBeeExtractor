@@ -1,14 +1,11 @@
 [versions]
-kotlin = "1.8.22"
-coroutine = "1.7.1"
-ktor = "2.3.2"
-junit = "4.13.2"
-serialization = "1.5.1"
-webhookk = "2.0.5"
-logback = "1.4.8"
+kotlin = "2.0.0"
+coroutine = "1.8.1"
+ktor = "2.3.11"
+webhookk = "2.0.6"
+logback = "1.5.6"
 
 [libraries]
-
 ktor_client_contentnegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor_client_websocket = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 ktor_serialization_kotlinx = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }

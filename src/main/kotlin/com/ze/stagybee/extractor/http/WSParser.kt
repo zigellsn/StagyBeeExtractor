@@ -1,5 +1,5 @@
 /*
- * Copyright 2019-2023 Simon Zigelli
+ * Copyright 2019-2024 Simon Zigelli
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ package com.ze.stagybee.extractor.http
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -93,8 +92,14 @@ internal class WSParser {
             else -> return null
         }
         val jsonString =
-            message.subSequence(0..a)
-                .toString() + """ "classType": "$type", """ + message.subSequence(a + 1 until message.length)
+            buildString {
+                append(
+                    message.subSequence(0..a)
+                        .toString()
+                )
+                append(""" "classType": "$type", """)
+                append(message.subSequence(a + 1 until message.length))
+            }
         return module.decodeFromString(jsonString)
     }
 
